@@ -1,0 +1,19 @@
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: judge-worker
+  namespace: judgex
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: judge-worker
+  minReplicaCount: 1
+  maxReplicaCount: 10
+  cooldownPeriod: 120
+  pollingInterval: 15
+  triggers:
+    - type: cpu
+      metricType: Utilization
+      metadata:
+        value: "60"

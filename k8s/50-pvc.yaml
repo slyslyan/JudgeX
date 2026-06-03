@@ -1,0 +1,19 @@
+---
+# PersistentVolumeClaim for test case files shared between API server and judge workers.
+#
+# PRODUCTION NOTE:
+#   ReadWriteOnce works for single-node clusters (minikube, kind, Docker Desktop).
+#   For multi-node clusters, switch to ReadWriteMany with an NFS/CephFS provisioner,
+#   or use an object store (MinIO, S3) with the MySQL fallback path for test cases.
+#
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: testcases
+  namespace: judgex
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 5Gi

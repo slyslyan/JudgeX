@@ -1,0 +1,356 @@
+@import "tailwindcss";
+
+@theme {
+  /* Apple-inspired palette */
+  --color-brand-50: #f0f7ff;
+  --color-brand-100: #dceaff;
+  --color-brand-200: #b8d4fe;
+  --color-brand-500: #0071e3;
+  --color-brand-600: #0066cc;
+  --color-brand-700: #0055b3;
+
+  --color-accent-50: #edfaf1;
+  --color-accent-100: #d6f3e0;
+  --color-accent-500: #34c759;
+  --color-accent-600: #2db84e;
+
+  --color-surface: #f5f5f7;
+  --color-border: #d2d2d7;
+
+  --font-sans: 'Inter', 'SF Pro Display', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-mono: 'SF Mono', 'JetBrains Mono', 'Fira Code', ui-monospace, monospace;
+
+  --radius-lg: 0.75rem;
+  --radius-xl: 1rem;
+}
+
+@custom-variant dark (&:where(.dark, .dark *), @media (prefers-color-scheme: dark));
+
+body {
+  font-family: var(--font-sans);
+  background: #f5f5f7;
+  color: #1d1d1f;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* =============================================
+   Apple Design System
+   ============================================= */
+
+/* Elevated card — soft shadow, no visible border */
+.apple-card {
+  background: #fff;
+  border-radius: 1.25rem;
+  box-shadow: 0 1px 3px rgb(0 0 0 / 0.04), 0 8px 24px rgb(0 0 0 / 0.04);
+  transition: box-shadow 0.3s ease;
+}
+.apple-card:hover {
+  box-shadow: 0 1px 3px rgb(0 0 0 / 0.06), 0 12px 32px rgb(0 0 0 / 0.06);
+}
+
+/* Glass panel for nav / modals */
+.glass-panel {
+  background: rgb(255 255 255 / 0.72);
+  backdrop-filter: blur(24px) saturate(1.5);
+  -webkit-backdrop-filter: blur(24px) saturate(1.5);
+  border: 1px solid rgb(0 0 0 / 0.06);
+  border-radius: 1.25rem;
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.04), 0 8px 32px rgb(0 0 0 / 0.06);
+}
+
+/* Primary button — pill, fill */
+.apple-btn-primary {
+  background: #0071e3;
+  color: #fff;
+  font-weight: 500;
+  font-size: 0.875rem;
+  border-radius: 9999px;
+  padding: 0.625rem 1.5rem;
+  border: none;
+  transition: all 0.2s ease;
+  cursor: pointer;
+}
+.apple-btn-primary:hover {
+  background: #0066cc;
+}
+.apple-btn-primary:active {
+  transform: scale(0.97);
+}
+
+/* Secondary button — pill, outline */
+.apple-btn-secondary {
+  background: #fff;
+  color: #1d1d1f;
+  font-weight: 500;
+  font-size: 0.875rem;
+  border-radius: 9999px;
+  padding: 0.625rem 1.5rem;
+  border: 1px solid #d2d2d7;
+  transition: all 0.2s ease;
+  cursor: pointer;
+}
+.apple-btn-secondary:hover {
+  background: #f5f5f7;
+  border-color: #86868b;
+}
+.apple-btn-secondary:active {
+  transform: scale(0.97);
+}
+
+/* Danger button */
+.apple-btn-danger {
+  background: #fff;
+  color: #ff3b30;
+  font-weight: 500;
+  font-size: 0.875rem;
+  border-radius: 9999px;
+  padding: 0.625rem 1.5rem;
+  border: 1px solid #ff3b30;
+  transition: all 0.2s ease;
+  cursor: pointer;
+}
+.apple-btn-danger:hover {
+  background: #ff3b30;
+  color: #fff;
+}
+
+/* Input — soft filled */
+.apple-input {
+  background: #f5f5f7;
+  border: 1px solid transparent;
+  border-radius: 0.75rem;
+  padding: 0.625rem 1rem;
+  font-size: 0.9375rem;
+  color: #1d1d1f;
+  transition: all 0.2s ease;
+  outline: none;
+  width: 100%;
+}
+.apple-input::placeholder {
+  color: #86868b;
+}
+.apple-input:focus {
+  background: #fff;
+  border-color: #0071e3;
+  box-shadow: 0 0 0 3px rgb(0 113 227 / 0.15);
+}
+
+/* Table — clean, minimal */
+.apple-table {
+  background: #fff;
+  border-radius: 1.25rem;
+  overflow: hidden;
+  box-shadow: 0 1px 3px rgb(0 0 0 / 0.04), 0 8px 24px rgb(0 0 0 / 0.04);
+}
+.apple-table table {
+  width: 100%;
+  border-collapse: collapse;
+}
+.apple-table thead th {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #86868b;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 0.75rem 1.25rem;
+  text-align: left;
+  border-bottom: 1px solid #e8e8ed;
+}
+.apple-table tbody td {
+  padding: 0.875rem 1.25rem;
+  font-size: 0.9375rem;
+  border-bottom: 1px solid #f5f5f7;
+}
+.apple-table tbody tr:last-child td {
+  border-bottom: none;
+}
+.apple-table tbody tr:hover {
+  background: #f5f5f7;
+}
+
+/* Subtle mesh background for hero sections */
+.bg-mesh {
+  background:
+    radial-gradient(ellipse 80% 60% at 50% -20%, rgb(0 113 227 / 0.04), transparent),
+    radial-gradient(ellipse 60% 50% at 100% 100%, rgb(0 113 227 / 0.02), transparent),
+    #f5f5f7;
+}
+
+/* Keep for backward compatibility in existing templates */
+.btn-gradient {
+  background: #0071e3;
+  color: #fff;
+  font-weight: 500;
+  font-size: 0.875rem;
+  border-radius: 9999px;
+  padding: 0.625rem 1.5rem;
+  border: none;
+  transition: all 0.2s ease;
+  cursor: pointer;
+}
+.btn-gradient:hover { background: #0066cc; }
+.btn-gradient:active { transform: scale(0.97); }
+
+.input-glow { transition: all 0.2s ease; }
+.input-glow:focus {
+  outline: none;
+  border-color: #0071e3;
+  box-shadow: 0 0 0 3px rgb(0 113 227 / 0.15);
+}
+
+.table-premium {
+  background: #fff;
+  border-radius: 1.25rem;
+  overflow: hidden;
+  box-shadow: 0 1px 3px rgb(0 0 0 / 0.04), 0 8px 24px rgb(0 0 0 / 0.04);
+}
+
+.stat-card {
+  background: #fff;
+  border-radius: 1.25rem;
+  padding: 1.25rem 1.5rem;
+  box-shadow: 0 1px 3px rgb(0 0 0 / 0.04), 0 4px 12px rgb(0 0 0 / 0.04);
+}
+
+.card-premium {
+  background: #fff;
+  border-radius: 1.25rem;
+  box-shadow: 0 1px 3px rgb(0 0 0 / 0.04), 0 8px 24px rgb(0 0 0 / 0.04);
+  transition: box-shadow 0.3s ease;
+}
+.card-premium:hover {
+  box-shadow: 0 1px 3px rgb(0 0 0 / 0.06), 0 12px 32px rgb(0 0 0 / 0.06);
+}
+
+.text-gradient {
+  background: linear-gradient(135deg, #0071e3, #5856d6);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+.text-gradient-brand {
+  background: linear-gradient(135deg, #0071e3, #5856d6);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* =============================================
+   Dark Mode — layered charcoal palette
+   ============================================= */
+
+.dark body,
+body.dark {
+  background: #161616;
+  color: #f5f5f7;
+}
+
+/* Cards — elevated surface above background */
+.dark .apple-card,
+.dark .apple-table,
+.dark .table-premium,
+.dark .stat-card,
+.dark .card-premium {
+  background: #1e1e20;
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.4), 0 4px 16px rgb(0 0 0 / 0.25);
+}
+
+.dark .apple-table tbody tr:hover { background: #28282a; }
+.dark .apple-table tbody td { border-color: #28282a; }
+.dark .apple-table thead th { border-color: #28282a; }
+
+.dark .glass-panel {
+  background: rgb(30 30 32 / 0.80);
+  border-color: rgb(255 255 255 / 0.06);
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.4), 0 8px 32px rgb(0 0 0 / 0.3);
+}
+
+.dark .apple-btn-secondary {
+  background: #1e1e20;
+  color: #f5f5f7;
+  border-color: #38383a;
+}
+.dark .apple-btn-secondary:hover {
+  background: #28282a;
+  border-color: #555557;
+}
+
+.dark .apple-input {
+  background: #28282a;
+  color: #f5f5f7;
+}
+.dark .apple-input:focus {
+  background: #1e1e20;
+  border-color: #0071e3;
+}
+
+.dark .bg-mesh {
+  background:
+    radial-gradient(ellipse 80% 60% at 50% -20%, rgb(0 113 227 / 0.05), transparent),
+    radial-gradient(ellipse 60% 50% at 100% 100%, rgb(88 86 214 / 0.03), transparent),
+    #161616;
+}
+
+/* Common dark overrides */
+.dark .bg-white { background: #1e1e20; }
+.dark .bg-white\/80 { background: rgb(30 30 32 / 0.8); }
+.dark .bg-surface { background: #161616; }
+.dark .bg-zinc-50,
+.dark .bg-zinc-50\/50 { background: #1e1e20; }
+.dark .bg-zinc-100 { background: #28282a; }
+.dark .bg-zinc-900 { background: #1e1e20; }
+.dark .bg-zinc-950 { background: #161616; }
+.dark .text-zinc-900 { color: #f5f5f7; }
+.dark .text-zinc-800 { color: #ededf0; }
+.dark .text-zinc-700 { color: #e5e5ea; }
+.dark .text-zinc-600 { color: #d1d1d6; }
+.dark .text-zinc-500 { color: #aeaeb2; }
+.dark .text-zinc-400 { color: #8e8e93; }
+.dark .text-zinc-300 { color: #636366; }
+.dark .border-zinc-100 { border-color: #28282a; }
+.dark .border-zinc-200 { border-color: #38383a; }
+.dark .border-zinc-700 { border-color: #38383a; }
+.dark .border-zinc-800 { border-color: #28282a; }
+.dark .border-border { border-color: #38383a; }
+.dark .hover\:bg-zinc-100:hover { background: #28282a; }
+.dark .hover\:bg-zinc-200:hover { background: #38383a; }
+.dark .hover\:bg-zinc-50\/50:hover { background: #1e1e20; }
+.dark .hover\:text-zinc-900:hover { color: #f5f5f7; }
+.dark .hover\:text-zinc-700:hover { color: #d1d1d6; }
+.dark .from-brand-50,
+.dark .via-white { background: #1e1e20; }
+.dark .from-white { background: #1e1e20; }
+.dark .to-zinc-50 { background: #161616; }
+.dark .shadow-zinc-900\/10 { --tw-shadow-color: transparent; }
+.dark .shadow-brand-200 { --tw-shadow-color: transparent; }
+.dark .shadow-brand-500\/25 { --tw-shadow-color: transparent; }
+
+.dark .bg-brand-50 { background: #0d1a2e; }
+.dark .bg-brand-100 { background: #0f2440; }
+.dark .bg-accent-100 { background: #0d2818; }
+.dark .text-brand-600,
+.dark .text-brand-700 { color: #409cff; }
+.dark .text-accent-600 { color: #30d158; }
+.dark .bg-blue-50 { background: #0d1a2e; }
+.dark .text-blue-700 { color: #409cff; }
+.dark .bg-emerald-50 { background: #0d2818; }
+.dark .text-emerald-700 { color: #30d158; }
+.dark .bg-amber-50,
+.dark .bg-amber-50\/50 { background: #2e2000; }
+.dark .text-amber-700,
+.dark .text-amber-800 { color: #ffd60a; }
+.dark .bg-pink-50 { background: #2e0d18; }
+.dark .text-pink-700 { color: #ff375f; }
+
+/* Navbar dark */
+.dark header.bg-white\/72 { background: rgb(22 22 22 / 0.78) !important; }
+.dark header.border-black\/5 { border-color: rgb(255 255 255 / 0.06) !important; }
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #d2d2d7; border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: #aeaeb2; }
+.dark ::-webkit-scrollbar-thumb { background: #38383a; }
+.dark ::-webkit-scrollbar-thumb:hover { background: #555557; }

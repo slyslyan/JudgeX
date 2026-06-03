@@ -1,0 +1,48 @@
+# Binaries
+server
+judge-worker
+importer
+server-static
+*.exe
+*.dll
+*.so
+*.dylib
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# Test data
+data/testcases/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Environment
+.env
+.env.local
+
+# Frontend
+frontend/node_modules/
+frontend/dist/
+
+# Docker
+mysql_data/
+nsq_data/
+
+# Temporary
+tmp/
+/tmp/
+*.tmp
+
+# Claude Code local settings (may contain credentials)
+.claude/settings.local.json
+CLAUDE.md

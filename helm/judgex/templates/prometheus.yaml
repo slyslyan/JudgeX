@@ -1,0 +1,152 @@
+{{- if .Values.observability.prometheus.enabled }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: prometheus-config
+  namespace: {{ include "judgex.namespace" . }}
+data:
+  prometheus-rules.yml: |
+    groups:
+      - name: judgex-alerts
+        interval: 30s
+        rules:
+          - alert: JudgeQueueDepthHigh
+            expr: judgex_queue_depth > 20
+            for: 5m
+            labels:
+              severity: warning
+            annotations:
+              summary: "Judge queue depth is {{ $value }} (>20 for 5m)"
+          - alert: JudgeQueueDepthCritical
+            expr: judgex_queue_depth > 100
+            for: 2m
+            labels:
+              severity: critical
+            annotations:
+              summary: "Judge queue depth critical: {{ $value }}"
+          - alert: HighSubmissionErrorRate
+            expr: rate(judgex_submissions_total - judgex_submissions_accepted[5m]) / rate(judgex_submissions_total[5m]) > 0.20
+            for: 5m
+            labels:
+              severity: warning
+            annotations:
+              summary: "Submission error rate {{ $value | humanizePercentage }} (>20%)"
+          - alert: BackendDown
+            expr: judgex_uptime_seconds < 60
+            for: 1m
+            labels:
+              severity: critical
+            annotations:
+              summary: "Backend may be down or recently restarted"
+          - alert: HighGoroutineCount
+            expr: judgex_go_goroutines > 5000
+            for: 5m
+            labels:
+              severity: warning
+            annotations:
+              summary: "High goroutine count: {{ $value }} (>5000)"
+          - alert: HighAPILatency
+            expr: rate(judgex_api_latency_sum_ms[5m]) / rate(judgex_api_latency_total[5m]) > 5000
+            for: 5m
+            labels:
+              severity: warning
+            annotations:
+              summary: "High API latency: {{ $value }}ms avg (>5000ms)"
+          - alert: DiskSpaceCritical
+            expr: judgex_disk_free_percent < 10
+            for: 1m
+            labels:
+              severity: critical
+            annotations:
+              summary: "Critical disk space: {{ $value }}% free (<10%)"
+          - alert: HighAPIErrorRate
+            expr: rate(judgex_api_errors_total[5m]) / rate(judgex_api_requests_total[5m]) > 0.05
+            for: 5m
+            labels:
+              severity: critical
+            annotations:
+              summary: "High API error rate: {{ $value | humanizePercentage }} (>5%)"
+  prometheus.yml: |
+    global:
+      scrape_interval: 15s
+      evaluation_interval: 15s
+    rule_files:
+      - /etc/prometheus/prometheus-rules.yml
+    alerting:
+      alertmanagers:
+        - static_configs:
+            - targets: ['alertmanager:9093']
+    scrape_configs:
+      - job_name: 'judgex-backend'
+        metrics_path: /metrics
+        static_configs:
+          - targets: ['backend:8080']
+            labels:
+              service: judgex
+      - job_name: 'prometheus'
+        static_configs:
+          - targets: ['localhost:9090']
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: prometheus
+  namespace: {{ include "judgex.namespace" . }}
+spec:
+  selector:
+    app: prometheus
+  ports:
+    - port: 9090
+      targetPort: 9090
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: prometheus
+  namespace: {{ include "judgex.namespace" . }}
+spec:
+  replicas: {{ .Values.observability.prometheus.replicas }}
+  selector:
+    matchLabels:
+      app: prometheus
+  template:
+    metadata:
+      labels:
+        app: prometheus
+    spec:
+      containers:
+        - name: prometheus
+          image: {{ .Values.observability.prometheus.image }}
+          args:
+            - --config.file=/etc/prometheus/prometheus.yml
+            - --storage.tsdb.path=/prometheus
+            - --storage.tsdb.retention.time={{ .Values.observability.prometheus.retention }}
+          ports:
+            - containerPort: 9090
+          volumeMounts:
+            - name: config
+              mountPath: /etc/prometheus
+            - name: data
+              mountPath: /prometheus
+          resources:
+{{ toYaml .Values.observability.prometheus.resources | indent 12 }}
+      volumes:
+        - name: config
+          configMap:
+            name: prometheus-config
+        - name: data
+          persistentVolumeClaim:
+            claimName: prometheus-data
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: prometheus-data
+  namespace: {{ include "judgex.namespace" . }}
+spec:
+  accessModes: ["ReadWriteOnce"]
+  resources:
+    requests:
+      storage: {{ .Values.observability.prometheus.persistence.size }}
+{{- end }}

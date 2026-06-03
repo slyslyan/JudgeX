@@ -1,0 +1,322 @@
+# JudgeX Helm Chart Values
+# This file contains the default values for the JudgeX chart.
+
+# Global settings
+global:
+  imageRegistry: ""
+  namespace: judgex
+
+# Image configuration
+image:
+  registry: ""
+  backend:
+    repository: judgex-backend
+    tag: latest
+    pullPolicy: IfNotPresent
+  frontend:
+    repository: judgex-frontend
+    tag: latest
+    pullPolicy: IfNotPresent
+
+# Ingress configuration
+ingress:
+  enabled: true
+  className: nginx
+  host: judgex.local
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-body-size: "16m"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "120"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "120"
+  # Traefik-specific: upload limit middleware
+  traefik:
+    uploadLimitBytes: 16777216
+
+# Sandbox configuration
+sandbox:
+  # Options: gvisor, native
+  mode: gvisor
+  # gVisor RuntimeClass name
+  runtimeClassName: gvisor
+  # Node selector for sandbox nodes
+  nodeSelector:
+    sandbox: gvisor
+  tolerations:
+    - key: sandbox
+      operator: Equal
+      value: gvisor
+      effect: NoSchedule
+
+# Backend configuration
+backend:
+  replicas: 2
+  image:
+    repository: judgex-backend
+    tag: latest
+    pullPolicy: IfNotPresent
+  resources:
+    requests:
+      memory: "64Mi"
+      cpu: "100m"
+    limits:
+      memory: "256Mi"
+      cpu: "500m"
+  hpa:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 8
+    cpuUtilization: 70
+    memoryUtilization: 80
+  probes:
+    liveness:
+      path: /health
+      initialDelaySeconds: 5
+      periodSeconds: 10
+    readiness:
+      path: /ready
+      initialDelaySeconds: 5
+      periodSeconds: 5
+
+# Judge worker configuration
+judgeWorker:
+  replicas: 2
+  image:
+    repository: judgex-backend
+    tag: latest
+    pullPolicy: IfNotPresent
+  resources:
+    requests:
+      memory: "128Mi"
+      cpu: "250m"
+    limits:
+      memory: "512Mi"
+      cpu: "1000m"
+  # Native sandbox (non-gVisor) requires extra capabilities
+  native:
+    resources:
+      requests:
+        memory: "256Mi"
+        cpu: "250m"
+      limits:
+        memory: "1Gi"
+        cpu: "2000m"
+    capabilities:
+      add:
+        - SYS_ADMIN
+        - SYS_PTRACE
+        - SYS_CHROOT
+        - NET_ADMIN
+        - SYS_RESOURCE
+  keda:
+    enabled: true
+    minReplicaCount: 2
+    maxReplicaCount: 20
+    cooldownPeriod: 300
+    prometheusServer: http://backend.judgex.svc.cluster.local:8080/metrics
+    threshold: "20"
+
+# Frontend configuration
+frontend:
+  replicas: 2
+  image:
+    repository: judgex-frontend
+    tag: latest
+    pullPolicy: IfNotPresent
+  resources:
+    requests:
+      memory: "32Mi"
+      cpu: "50m"
+    limits:
+      memory: "128Mi"
+      cpu: "200m"
+  probes:
+    liveness:
+      path: /
+      initialDelaySeconds: 3
+      periodSeconds: 10
+    readiness:
+      path: /
+      initialDelaySeconds: 3
+      periodSeconds: 5
+
+# MySQL configuration
+mysql:
+  enabled: true
+  image: mysql:8.4
+  replicas: 1
+  resources:
+    requests:
+      memory: "256Mi"
+      cpu: "250m"
+    limits:
+      memory: "512Mi"
+      cpu: "500m"
+  persistence:
+    size: 10Gi
+  probes:
+    liveness:
+      initialDelaySeconds: 30
+      periodSeconds: 10
+    readiness:
+      initialDelaySeconds: 10
+      periodSeconds: 5
+
+# Redis configuration
+redis:
+  enabled: true
+  image: redis:7-alpine
+  replicas: 1
+  resources:
+    requests:
+      memory: "64Mi"
+      cpu: "100m"
+    limits:
+      memory: "256Mi"
+      cpu: "200m"
+
+# NSQ configuration
+nsq:
+  enabled: true
+  image: nsqio/nsq:v1.3.0
+  nsqd:
+    persistence:
+      size: 1Gi
+  resources:
+    lookupd:
+      requests:
+        memory: "32Mi"
+        cpu: "50m"
+      limits:
+        memory: "128Mi"
+        cpu: "100m"
+    nsqd:
+      requests:
+        memory: "64Mi"
+        cpu: "100m"
+      limits:
+        memory: "256Mi"
+        cpu: "200m"
+    admin:
+      requests:
+        memory: "32Mi"
+        cpu: "50m"
+      limits:
+        memory: "128Mi"
+        cpu: "100m"
+
+# Observability configuration
+observability:
+  prometheus:
+    enabled: false
+    image: prom/prometheus:v2.52.0
+    replicas: 1
+    retention: 7d
+    resources:
+      requests:
+        memory: "256Mi"
+        cpu: "100m"
+      limits:
+        memory: "512Mi"
+        cpu: "500m"
+    persistence:
+      size: 10Gi
+  grafana:
+    enabled: false
+    image: grafana/grafana:10.4.0
+    replicas: 1
+    adminPassword: admin
+    resources:
+      requests:
+        memory: "128Mi"
+        cpu: "50m"
+      limits:
+        memory: "256Mi"
+        cpu: "200m"
+    persistence:
+      size: 5Gi
+  loki:
+    enabled: false
+    image: grafana/loki:2.9.4
+    replicas: 1
+    resources:
+      requests:
+        memory: "128Mi"
+        cpu: "100m"
+      limits:
+        memory: "256Mi"
+        cpu: "200m"
+    persistence:
+      size: 10Gi
+  promtail:
+    enabled: false
+    image: grafana/promtail:2.9.4
+    resources:
+      requests:
+        memory: "64Mi"
+        cpu: "50m"
+      limits:
+        memory: "128Mi"
+        cpu: "200m"
+  alertmanager:
+    enabled: false
+    image: prom/alertmanager:v0.27.0
+    replicas: 1
+    resources:
+      requests:
+        memory: "64Mi"
+        cpu: "50m"
+      limits:
+        memory: "128Mi"
+        cpu: "200m"
+    persistence:
+      size: 1Gi"
+
+# Test case storage configuration
+storage:
+  # Use shared PVC (default) or object storage
+  type: pvc
+  pvc:
+    size: 5Gi
+    accessMode: ReadWriteOnce
+  minio:
+    enabled: false
+    image: minio/minio:latest
+    replicas: 1
+    persistence:
+      size: 10Gi
+    resources:
+      requests:
+        memory: "256Mi"
+        cpu: "100m"
+      limits:
+        memory: "512Mi"
+        cpu: "500m"
+
+# Application configuration (ConfigMap)
+config:
+  serverPort: "8080"
+  db:
+    host: mysql.judgex.svc.cluster.local
+    port: "3306"
+    user: judgex
+    name: judgex
+  redisAddr: redis.judgex.svc.cluster.local:6379
+  nsqdAddr: nsqd.judgex.svc.cluster.local:4150
+  testDataPath: /data/testcases
+  logLevel: info
+  llm:
+    apiUrl: https://api.openai.com/v1
+    model: gpt-4o-mini
+  # Secrets (stored in Secret resource)
+  secrets:
+    dbPassword: judgex123
+    jwtSecret: judgex-secret-change-in-production
+    adminPassword: adminadmin
+    llmApiKey: ""
+    minioAccessKey: minioadmin
+    minioSecretKey: minioadmin123
+
+# gVisor RuntimeClass
+runtimeClass:
+  enabled: false
+  name: gvisor
+  handler: runsc

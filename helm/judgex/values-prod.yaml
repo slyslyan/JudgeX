@@ -1,0 +1,85 @@
+# Production overrides for K3s deployment
+# Use with: helm upgrade --install judgex ./helm/judgex --values helm/judgex/values-prod.yaml
+
+image:
+  registry: ""
+  backend:
+    tag: latest
+    pullPolicy: IfNotPresent
+  frontend:
+    tag: latest
+    pullPolicy: IfNotPresent
+
+ingress:
+  enabled: true
+  className: traefik
+  host: judgex.local
+  traefik:
+    uploadLimitBytes: 16777216
+
+sandbox:
+  mode: native
+
+backend:
+  replicas: 2
+  resources:
+    requests:
+      memory: "128Mi"
+      cpu: "200m"
+    limits:
+      memory: "512Mi"
+      cpu: "1000m"
+  hpa:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 8
+
+judgeWorker:
+  replicas: 2
+  resources:
+    requests:
+      memory: "128Mi"
+      cpu: "250m"
+    limits:
+      memory: "512Mi"
+      cpu: "1000m"
+  native:
+    resources:
+      requests:
+        memory: "256Mi"
+        cpu: "250m"
+      limits:
+        memory: "1Gi"
+        cpu: "2000m"
+  keda:
+    enabled: true
+
+frontend:
+  replicas: 1
+  resources:
+    requests:
+      memory: "32Mi"
+      cpu: "50m"
+    limits:
+      memory: "128Mi"
+      cpu: "200m"
+
+storage:
+  type: pvc
+  pvc:
+    size: 5Gi
+  minio:
+    enabled: false
+
+config:
+  secrets:
+    dbPassword: judgex123
+    jwtSecret: judgex-secret-change-in-production
+    adminPassword: adminadmin
+    llmApiKey: ""
+  llm:
+    apiUrl: https://dashscope.aliyuncs.com/compatible-mode/v1
+    model: qwen-plus
+
+runtimeClass:
+  enabled: false

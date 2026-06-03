@@ -1,0 +1,91 @@
+# Chaos Mesh experiment: Network Partition
+# Simulates network latency and packet loss between backend and MySQL.
+# Tests: backend resilience to database latency, connection pool behavior,
+#        query timeout handling, circuit breaker triggering.
+#
+# Prerequisites: Chaos Mesh installed in the cluster
+#   kubectl create namespace chaos-mesh
+#   helm install chaos-mesh chaos-mesh/chaos-mesh --namespace=chaos-mesh
+#
+# Usage:
+#   kubectl apply -f deploy/chaos/01-network-partition.yaml
+#   kubectl delete chaosnetworkchaos backend-mysql-latency
+
+apiVersion: chaos-mesh.org/v1alpha1
+kind: NetworkChaos
+metadata:
+  name: backend-mysql-latency
+  namespace: judgex
+spec:
+  action: delay
+  mode: all
+  selector:
+    namespaces:
+      - judgex
+    labelSelectors:
+      app: backend
+  delay:
+    latency: 300ms
+    jitter: 100ms
+    correlation: 50
+  duration: 5m
+  target:
+    mode: all
+    selector:
+      namespaces:
+        - judgex
+      labelSelectors:
+        app: mysql
+  direction: both
+---
+# Packet loss between backend and MySQL
+apiVersion: chaos-mesh.org/v1alpha1
+kind: NetworkChaos
+metadata:
+  name: backend-mysql-packet-loss
+  namespace: judgex
+spec:
+  action: loss
+  mode: all
+  selector:
+    namespaces:
+      - judgex
+    labelSelectors:
+      app: backend
+  loss:
+    loss: 20
+    correlation: 50
+  duration: 3m
+  target:
+    mode: all
+    selector:
+      namespaces:
+        - judgex
+      labelSelectors:
+        app: mysql
+  direction: both
+---
+# Full network partition between backend and Redis
+# Tests: Redis failover to sentinel, cache misses, degraded operation
+apiVersion: chaos-mesh.org/v1alpha1
+kind: NetworkChaos
+metadata:
+  name: backend-redis-partition
+  namespace: judgex
+spec:
+  action: partition
+  mode: all
+  selector:
+    namespaces:
+      - judgex
+    labelSelectors:
+      app: backend
+  duration: 2m
+  target:
+    mode: all
+    selector:
+      namespaces:
+        - judgex
+      labelSelectors:
+        app: redis
+  direction: both

@@ -1,0 +1,169 @@
+---
+# NSQ Lookupd — service discovery for NSQ
+apiVersion: v1
+kind: Service
+metadata:
+  name: nsqlookupd
+  namespace: judgex
+spec:
+  selector:
+    app: nsqlookupd
+  ports:
+    - name: tcp
+      port: 4160
+      targetPort: 4160
+    - name: http
+      port: 4161
+      targetPort: 4161
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nsqlookupd
+  namespace: judgex
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: nsqlookupd
+  template:
+    metadata:
+      labels:
+        app: nsqlookupd
+    spec:
+      containers:
+        - name: nsqlookupd
+          image: nsqio/nsq:v1.3.0
+          command: ["/nsqlookupd"]
+          ports:
+            - containerPort: 4160
+            - containerPort: 4161
+          resources:
+            requests:
+              memory: "32Mi"
+              cpu: "50m"
+            limits:
+              memory: "128Mi"
+              cpu: "100m"
+          readinessProbe:
+            tcpSocket:
+              port: 4160
+            initialDelaySeconds: 3
+            periodSeconds: 5
+---
+# NSQ Daemon — message queue engine
+apiVersion: v1
+kind: Service
+metadata:
+  name: nsqd
+  namespace: judgex
+spec:
+  selector:
+    app: nsqd
+  ports:
+    - name: tcp
+      port: 4150
+      targetPort: 4150
+    - name: http
+      port: 4151
+      targetPort: 4151
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: nsqd
+  namespace: judgex
+spec:
+  serviceName: nsqd
+  replicas: 1
+  selector:
+    matchLabels:
+      app: nsqd
+  template:
+    metadata:
+      labels:
+        app: nsqd
+    spec:
+      containers:
+        - name: nsqd
+          image: nsqio/nsq:v1.3.0
+          command:
+            - /nsqd
+            - --lookupd-tcp-address=nsqlookupd:4160
+            - --broadcast-address=$(POD_NAME).nsqd
+            - --data-path=/data
+          env:
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+          ports:
+            - containerPort: 4150
+            - containerPort: 4151
+          volumeMounts:
+            - name: nsq-data
+              mountPath: /data
+          resources:
+            requests:
+              memory: "64Mi"
+              cpu: "100m"
+            limits:
+              memory: "256Mi"
+              cpu: "200m"
+          readinessProbe:
+            tcpSocket:
+              port: 4150
+            initialDelaySeconds: 3
+            periodSeconds: 5
+  volumeClaimTemplates:
+    - metadata:
+        name: nsq-data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: 1Gi
+---
+# NSQ Admin — web UI for queue monitoring
+apiVersion: v1
+kind: Service
+metadata:
+  name: nsqadmin
+  namespace: judgex
+spec:
+  selector:
+    app: nsqadmin
+  ports:
+    - port: 4171
+      targetPort: 4171
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nsqadmin
+  namespace: judgex
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: nsqadmin
+  template:
+    metadata:
+      labels:
+        app: nsqadmin
+    spec:
+      containers:
+        - name: nsqadmin
+          image: nsqio/nsq:v1.3.0
+          command:
+            - /nsqadmin
+            - --lookupd-http-address=nsqlookupd:4161
+          ports:
+            - containerPort: 4171
+          resources:
+            requests:
+              memory: "32Mi"
+              cpu: "50m"
+            limits:
+              memory: "128Mi"
+              cpu: "100m"

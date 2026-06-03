@@ -1,0 +1,7 @@
+frontend/*
+!frontend/dist
+!frontend/dist/**
+server
+*.md
+.git
+.claude/

@@ -1,0 +1,50 @@
+# Local development overrides
+# Use with: helm upgrade --install judgex ./helm/judgex --values helm/judgex/values-dev.yaml
+
+image:
+  registry: ""
+  backend:
+    tag: latest
+    pullPolicy: IfNotPresent
+  frontend:
+    tag: latest
+    pullPolicy: IfNotPresent
+
+ingress:
+  enabled: false
+
+sandbox:
+  mode: gvisor
+
+backend:
+  replicas: 1
+  hpa:
+    enabled: false
+
+judgeWorker:
+  replicas: 1
+  keda:
+    enabled: false
+
+frontend:
+  replicas: 1
+
+storage:
+  type: pvc
+  pvc:
+    size: 1Gi
+  minio:
+    enabled: false
+
+config:
+  secrets:
+    dbPassword: judgex123
+    jwtSecret: dev-jwt-secret
+    adminPassword: adminadmin
+    llmApiKey: ""
+  llm:
+    apiUrl: https://api.openai.com/v1
+    model: gpt-4o-mini
+
+runtimeClass:
+  enabled: false

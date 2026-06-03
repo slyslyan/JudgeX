@@ -1,0 +1,103 @@
+{{- if .Values.observability.alertmanager.enabled }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: alertmanager-config
+  namespace: {{ include "judgex.namespace" . }}
+data:
+  alertmanager.yml: |
+    route:
+      receiver: "judgex-aiops"
+      group_by: ["alertname", "severity"]
+      group_wait: 30s
+      group_interval: 2m
+      repeat_interval: 1h
+      routes:
+        - receiver: "judgex-aiops-critical"
+          match:
+            severity: critical
+          group_wait: 10s
+          group_interval: 1m
+          repeat_interval: 30m
+        - receiver: "judgex-aiops"
+          match:
+            severity: warning
+          group_wait: 30s
+          group_interval: 2m
+          repeat_interval: 1h
+    receivers:
+      - name: "judgex-aiops"
+        webhook_configs:
+          - url: "http://backend:8080/api/admin/alerts/webhook"
+            send_resolved: true
+            http_config:
+              timeout: 65s
+      - name: "judgex-aiops-critical"
+        webhook_configs:
+          - url: "http://backend:8080/api/admin/alerts/webhook"
+            send_resolved: true
+            http_config:
+              timeout: 65s
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: alertmanager
+  namespace: {{ include "judgex.namespace" . }}
+spec:
+  selector:
+    app: alertmanager
+  ports:
+    - port: 9093
+      targetPort: 9093
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: alertmanager
+  namespace: {{ include "judgex.namespace" . }}
+spec:
+  replicas: {{ .Values.observability.alertmanager.replicas }}
+  selector:
+    matchLabels:
+      app: alertmanager
+  template:
+    metadata:
+      labels:
+        app: alertmanager
+    spec:
+      containers:
+        - name: alertmanager
+          image: {{ .Values.observability.alertmanager.image }}
+          args:
+            - --config.file=/etc/alertmanager/alertmanager.yml
+            - --storage.path=/alertmanager
+          ports:
+            - containerPort: 9093
+          volumeMounts:
+            - name: config
+              mountPath: /etc/alertmanager
+            - name: data
+              mountPath: /alertmanager
+          resources:
+{{ toYaml .Values.observability.alertmanager.resources | indent 12 }}
+      volumes:
+        - name: config
+          configMap:
+            name: alertmanager-config
+        - name: data
+          persistentVolumeClaim:
+            claimName: alertmanager-data
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: alertmanager-data
+  namespace: {{ include "judgex.namespace" . }}
+spec:
+  accessModes: ["ReadWriteOnce"]
+  resources:
+    requests:
+      storage: {{ .Values.observability.alertmanager.persistence.size }}
+{{- end }}

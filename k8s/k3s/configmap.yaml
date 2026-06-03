@@ -1,0 +1,20 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: judgex-config
+  namespace: judgex
+data:
+  SERVER_PORT: "8080"
+  DB_HOST: mysql.judgex.svc.cluster.local
+  DB_PORT: "3306"
+  DB_USER: judgex
+  DB_NAME: judgex
+  REDIS_ADDR: redis.judgex.svc.cluster.local:6379
+  NSQD_ADDR: nsqd.judgex.svc.cluster.local:4150
+  TEST_DATA_PATH: /data/testcases
+  LOG_LEVEL: info
+  # 国内腾讯云环境用国内 LLM API
+  LLM_API_URL: https://dashscope.aliyuncs.com/compatible-mode/v1
+  LLM_MODEL: qwen-plus
+  # k3s 的 AppArmor 阻止 mount，所以用 gvisor 模式（不走 unshare，用简单 chroot+seccomp）
+  SANDBOX_MODE: "gvisor"

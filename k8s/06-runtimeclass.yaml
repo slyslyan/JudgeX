@@ -1,0 +1,30 @@
+---
+# gVisor RuntimeClass — provides kernel-level isolation for untrusted workloads.
+# Before using, install gVisor on each K8s node:
+#   https://gvisor.dev/docs/user_guide/install/
+#
+# Quick install (Ubuntu/Debian):
+#   curl -fsSL https://gvisor.dev/archive.key | sudo gpg --dearmor -o /usr/share/keyrings/gvisor-archive-keyring.gpg
+#   echo "deb [signed-by=/usr/share/keyrings/gvisor-archive-keyring.gpg] https://storage.googleapis.com/gvisor/releases release main" | sudo tee /etc/apt/sources.list.d/gvisor.list
+#   sudo apt-get update && sudo apt-get install -y runsc
+#
+# Verify: runsc --version
+# Then configure containerd to use runsc:
+#   sudo runsc install
+#   sudo systemctl restart containerd
+---
+apiVersion: node.k8s.io/v1
+kind: RuntimeClass
+metadata:
+  name: gvisor
+  namespace: judgex
+handler: runsc
+scheduling:
+  # Judge workers have elevated resource needs; prefer nodes with capacity.
+  nodeSelector:
+    sandbox: gvisor
+  tolerations:
+    - key: "sandbox"
+      operator: "Equal"
+      value: "gvisor"
+      effect: "NoSchedule"

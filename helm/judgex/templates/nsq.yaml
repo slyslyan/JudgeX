@@ -1,0 +1,156 @@
+{{- if .Values.nsq.enabled }}
+---
+# NSQ Lookupd
+apiVersion: v1
+kind: Service
+metadata:
+  name: nsqlookupd
+  namespace: {{ include "judgex.namespace" . }}
+spec:
+  selector:
+    app: nsqlookupd
+  ports:
+    - name: tcp
+      port: 4160
+      targetPort: 4160
+    - name: http
+      port: 4161
+      targetPort: 4161
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nsqlookupd
+  namespace: {{ include "judgex.namespace" . }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: nsqlookupd
+  template:
+    metadata:
+      labels:
+        app: nsqlookupd
+    spec:
+      containers:
+        - name: nsqlookupd
+          image: {{ .Values.nsq.image }}
+          command: ["/nsqlookupd"]
+          ports:
+            - containerPort: 4160
+            - containerPort: 4161
+          resources:
+{{ toYaml .Values.nsq.resources.lookupd | indent 12 }}
+          readinessProbe:
+            tcpSocket:
+              port: 4160
+            initialDelaySeconds: 3
+            periodSeconds: 5
+---
+# NSQ Daemon
+apiVersion: v1
+kind: Service
+metadata:
+  name: nsqd
+  namespace: {{ include "judgex.namespace" . }}
+spec:
+  selector:
+    app: nsqd
+  ports:
+    - name: tcp
+      port: 4150
+      targetPort: 4150
+    - name: http
+      port: 4151
+      targetPort: 4151
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: nsqd
+  namespace: {{ include "judgex.namespace" . }}
+spec:
+  serviceName: nsqd
+  replicas: 1
+  selector:
+    matchLabels:
+      app: nsqd
+  template:
+    metadata:
+      labels:
+        app: nsqd
+    spec:
+      containers:
+        - name: nsqd
+          image: {{ .Values.nsq.image }}
+          command:
+            - /nsqd
+            - --lookupd-tcp-address=nsqlookupd:4160
+            - --broadcast-address=$(POD_NAME).nsqd
+            - --data-path=/data
+          env:
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+          ports:
+            - containerPort: 4150
+            - containerPort: 4151
+          volumeMounts:
+            - name: nsq-data
+              mountPath: /data
+          resources:
+{{ toYaml .Values.nsq.resources.nsqd | indent 12 }}
+          readinessProbe:
+            tcpSocket:
+              port: 4150
+            initialDelaySeconds: 3
+            periodSeconds: 5
+  volumeClaimTemplates:
+    - metadata:
+        name: nsq-data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: {{ .Values.nsq.nsqd.persistence.size }}
+---
+# NSQ Admin
+apiVersion: v1
+kind: Service
+metadata:
+  name: nsqadmin
+  namespace: {{ include "judgex.namespace" . }}
+spec:
+  selector:
+    app: nsqadmin
+  ports:
+    - port: 4171
+      targetPort: 4171
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nsqadmin
+  namespace: {{ include "judgex.namespace" . }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: nsqadmin
+  template:
+    metadata:
+      labels:
+        app: nsqadmin
+    spec:
+      containers:
+        - name: nsqadmin
+          image: {{ .Values.nsq.image }}
+          command:
+            - /nsqadmin
+            - --lookupd-http-address=nsqlookupd:4161
+          ports:
+            - containerPort: 4171
+          resources:
+{{ toYaml .Values.nsq.resources.admin | indent 12 }}
+{{- end }}

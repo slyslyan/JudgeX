@@ -1,0 +1,18 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: judgex-config
+  namespace: {{ include "judgex.namespace" . }}
+data:
+  SERVER_PORT: {{ .Values.config.serverPort | quote }}
+  DB_HOST: {{ .Values.config.db.host | quote }}
+  DB_PORT: {{ .Values.config.db.port | quote }}
+  DB_USER: {{ .Values.config.db.user | quote }}
+  DB_NAME: {{ .Values.config.db.name | quote }}
+  REDIS_ADDR: {{ .Values.config.redisAddr | quote }}
+  NSQD_ADDR: {{ .Values.config.nsqdAddr | quote }}
+  TEST_DATA_PATH: {{ .Values.config.testDataPath | quote }}
+  LOG_LEVEL: {{ .Values.config.logLevel | quote }}
+  LLM_API_URL: {{ .Values.config.llm.apiUrl | quote }}
+  LLM_MODEL: {{ .Values.config.llm.model | quote }}
+  SANDBOX_MODE: {{ include "judgex.sandboxMode" . | quote }}

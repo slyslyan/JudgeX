@@ -1,0 +1,102 @@
+groups:
+  - name: judgex-alerts
+    interval: 30s
+    rules:
+      # Judge queue depth too high — workers falling behind
+      - alert: JudgeQueueDepthHigh
+        expr: judgex_queue_depth > 20
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Judge queue depth is {{ $value }} (>20 for 5m)"
+          description: "Submission queue is backing up. Current depth: {{ $value }}. Workers may need to scale up."
+
+      # Critical queue depth — submissions will be dropped
+      - alert: JudgeQueueDepthCritical
+        expr: judgex_queue_depth > 100
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Judge queue depth critical: {{ $value }}"
+          description: "Queue depth at {{ $value }}. Submissions are being delayed or dropped. Immediate action required."
+
+      # High submission error rate — possible judge/sandbox issue
+      - alert: HighSubmissionErrorRate
+        expr: rate(judgex_submissions_total - judgex_submissions_accepted[5m]) / rate(judgex_submissions_total[5m]) > 0.20
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Submission error rate {{ $value | humanizePercentage }} (>20% for 5m)"
+          description: "High error rate detected: {{ $value | humanizePercentage }} of submissions are failing. Check judge worker and sandbox."
+
+      # Backend down via uptime metric
+      - alert: BackendDown
+        expr: judgex_uptime_seconds < 60
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Backend may be down or recently restarted"
+          description: "Backend uptime is less than 60 seconds. Possible crash or restart."
+
+      # Goroutine leak detection
+      - alert: HighGoroutineCount
+        expr: judgex_go_goroutines > 5000
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High goroutine count: {{ $value }} (>5000)"
+          description: "Goroutine count at {{ $value }}. Possible goroutine leak or high concurrent load."
+
+      # API latency degradation (p99 from histogram)
+      - alert: HighAPILatency
+        expr: rate(judgex_api_latency_sum_ms[5m]) / rate(judgex_api_latency_total[5m]) > 5000
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High API latency: {{ $value }}ms avg (>5000ms for 5m)"
+          description: "Average API latency is {{ $value }}ms. Check database query performance and resource usage."
+
+      # Disk space running low
+      - alert: DiskSpaceLow
+        expr: judgex_disk_free_percent < 20
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Low disk space: {{ $value }}% free (<20%)"
+          description: "Disk space at {{ $value }}%. Clean up old test cases or expand storage."
+
+      - alert: DiskSpaceCritical
+        expr: judgex_disk_free_percent < 10
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Critical disk space: {{ $value }}% free (<10%)"
+          description: "Disk space critically low at {{ $value }}%. Immediate action required."
+
+      # High 5xx error rate
+      - alert: HighAPIErrorRate
+        expr: rate(judgex_api_errors_total[5m]) / rate(judgex_api_requests_total[5m]) > 0.05
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "High API error rate: {{ $value | humanizePercentage }} (>5% for 5m)"
+          description: "API returning {{ $value | humanizePercentage }} errors. Possible internal failure."
+
+      # Active judgements anomaly — too many concurrent
+      - alert: HighActiveJudgements
+        expr: judgex_active_judgements > 50
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High active judgements: {{ $value }} (>50 for 5m)"
+          description: "Currently {{ $value }} active judgements. Workers may be overloaded."

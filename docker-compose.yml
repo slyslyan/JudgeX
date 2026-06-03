@@ -1,0 +1,209 @@
+services:
+  mysql:
+    image: mysql:8.4
+    environment:
+      MYSQL_ROOT_PASSWORD: root123
+      MYSQL_DATABASE: judgex
+      MYSQL_USER: judgex
+      MYSQL_PASSWORD: judgex123
+    ports:
+      - "3307:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-proot123"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped
+
+  nsqlookupd:
+    image: nsqio/nsq:v1.3.0
+    command: /nsqlookupd
+    ports:
+      - "4160:4160"
+      - "4161:4161"
+    restart: unless-stopped
+
+  nsqd:
+    image: nsqio/nsq:v1.3.0
+    command: /nsqd --lookupd-tcp-address=nsqlookupd:4160 --broadcast-address=nsqd --data-path=/data
+    depends_on:
+      - nsqlookupd
+    ports:
+      - "4150:4150"
+      - "4151:4151"
+    volumes:
+      - nsq_data:/data
+    restart: unless-stopped
+
+  nsqadmin:
+    image: nsqio/nsq:v1.3.0
+    command: /nsqadmin --lookupd-http-address=nsqlookupd:4161
+    depends_on:
+      - nsqlookupd
+    ports:
+      - "4171:4171"
+    restart: unless-stopped
+
+  backend:
+    build: .
+    ports:
+      - "8080:8080"
+    environment:
+      SERVER_PORT: "8080"
+      DB_HOST: mysql
+      DB_PORT: "3306"
+      DB_USER: judgex
+      DB_PASSWORD: judgex123
+      DB_NAME: judgex
+      REDIS_ADDR: redis:6379
+      NSQD_ADDR: nsqd:4150
+      JWT_SECRET: judgex-secret-change-in-production
+      TEST_DATA_PATH: /data/testcases
+      ADMIN_PASSWORD: adminadmin
+      LOG_LEVEL: info
+      LLM_API_URL: https://api.openai.com/v1
+      LLM_API_KEY: ""
+      LLM_MODEL: gpt-4o-mini
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      nsqd:
+        condition: service_started
+    volumes:
+      - testcases_data:/data/testcases
+    restart: unless-stopped
+
+  judge-worker:
+    build: .
+    command: ["judge-worker"]
+    environment:
+      SANDBOX_MODE: "native"
+      DB_HOST: mysql
+      DB_PORT: "3306"
+      DB_USER: judgex
+      DB_PASSWORD: judgex123
+      DB_NAME: judgex
+      REDIS_ADDR: redis:6379
+      NSQD_ADDR: nsqd:4150
+      JWT_SECRET: judgex-secret-change-in-production
+      TEST_DATA_PATH: /data/testcases
+      LOG_LEVEL: info
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      nsqd:
+        condition: service_started
+    volumes:
+      - testcases_data:/data/testcases
+      - /sys/fs/cgroup:/sys/fs/cgroup:rw  # cgroup v2 — only needed with SANDBOX_MODE=native
+    # === Security: Native vs gVisor sandbox modes ===
+    #
+    # SANDBOX_MODE=native (default for Docker Compose):
+    #   Requires host kernel capabilities and /sys/fs/cgroup mount.
+    #   The sandbox uses unshare(1) to create 5 kernel namespaces, then sets up
+    #   a mount-based chroot jail + seccomp-BPF filter + cgroup v2 resource limits.
+    #   This provides strong isolation but the container has elevated privileges.
+    #
+    # SANDBOX_MODE=gvisor (recommended for production / K8s):
+    #   Use with: docker run --runtime=runsc ...  or  K8s RuntimeClass: gvisor.
+    #   In this mode, the sandbox skips unshare and cgroups (gVisor provides
+    #   kernel-level isolation) but still sets up a chroot jail + seccomp filter
+    #   for defense-in-depth. No host capabilities or cgroup mounts needed.
+    #
+    # To use gVisor locally in Docker Compose:
+    #   1. Install runsc: https://gvisor.dev/docs/user_guide/install/
+    #   2. Add `runtime: runsc` to this service
+    #   3. Change SANDBOX_MODE to "gvisor"
+    #   4. Remove the /sys/fs/cgroup volume mount
+    #
+    # Minimum capabilities for native mode:
+    # - SYS_ADMIN: mount(), unshare, cgroup writes
+    # - SYS_PTRACE: seccomp filter application
+    # - SYS_CHROOT: chroot jail setup
+    # - NET_ADMIN: network namespace management
+    # - SYS_RESOURCE: resource limit setting
+    cap_add:
+      - SYS_ADMIN
+      - SYS_PTRACE
+      - SYS_CHROOT
+      - NET_ADMIN
+      - SYS_RESOURCE
+    security_opt:
+      - apparmor:unconfined
+    restart: unless-stopped
+    deploy:
+      replicas: 2
+
+  frontend:
+    build: ./frontend
+    ports:
+      - "8081:80"
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+  prometheus:
+    image: prom/prometheus:v2.52.0
+    ports:
+      - "9090:9090"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./prometheus-rules.yml:/etc/prometheus/rules/prometheus-rules.yml:ro
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+    restart: unless-stopped
+
+  alertmanager:
+    image: prom/alertmanager:v0.27.0
+    ports:
+      - "9093:9093"
+    volumes:
+      - ./alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+    command:
+      - '--config.file=/etc/alertmanager/alertmanager.yml'
+      - '--storage.path=/alertmanager'
+    restart: unless-stopped
+
+  grafana:
+    image: grafana/grafana:10.4.0
+    ports:
+      - "3000:3000"
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH: /etc/grafana/dashboards/judgex.json
+    volumes:
+      - ./grafana-dashboard.json:/etc/grafana/dashboards/judgex.json:ro
+      - ./grafana/provisioning/datasources:/etc/grafana/provisioning/datasources:ro
+      - ./grafana/provisioning/dashboards:/etc/grafana/provisioning/dashboards:ro
+      - grafana_data:/var/lib/grafana
+    restart: unless-stopped
+
+volumes:
+  mysql_data:
+  testcases_data:
+  nsq_data:
+  prometheus_data:
+  grafana_data:

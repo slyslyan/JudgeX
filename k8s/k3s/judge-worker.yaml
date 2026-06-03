@@ -1,0 +1,92 @@
+---
+# Judge Worker — k3s 版本，使用 native sandbox 模式
+# k3s 不支持 gVisor RuntimeClass，所以 judge-worker 跑在特权容器里
+# 沙箱通过 unshare + chroot + seccomp + cgroup v2 在内核层隔离用户代码
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: judge-worker
+  namespace: judgex
+  labels:
+    app: judge-worker
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: judge-worker
+  template:
+    metadata:
+      labels:
+        app: judge-worker
+    spec:
+      containers:
+        - name: judge-worker
+          image: localhost/judgex-backend:latest
+          imagePullPolicy: IfNotPresent
+          command: ["judge-worker"]
+
+          envFrom:
+            - configMapRef:
+                name: judgex-config
+            - secretRef:
+                name: judgex-secret
+
+          volumeMounts:
+            - name: testcases
+              mountPath: /data/testcases
+            - name: cgroup
+              mountPath: /sys/fs/cgroup
+              readOnly: false
+
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "250m"
+            limits:
+              memory: "1Gi"
+              cpu: "2000m"
+
+          # Native sandbox 需要这些 capabilities:
+          # - SYS_ADMIN: mount, unshare, cgroup 写入
+          # - SYS_PTRACE: seccomp filter 加载
+          # - SYS_CHROOT: chroot jail
+          # - NET_ADMIN: network namespace
+          # - SYS_RESOURCE: 资源限制
+          securityContext:
+            allowPrivilegeEscalation: true
+            capabilities:
+              add:
+                - SYS_ADMIN
+                - SYS_PTRACE
+                - SYS_CHROOT
+                - NET_ADMIN
+                - SYS_RESOURCE
+            # Native sandbox 需要写 /sys/fs/cgroup，不能用只读文件系统
+            readOnlyRootFilesystem: false
+
+          readinessProbe:
+            exec:
+              command:
+                - /bin/sh
+                - -c
+                - "pgrep -f judge-worker > /dev/null"
+            initialDelaySeconds: 5
+            periodSeconds: 10
+
+          livenessProbe:
+            exec:
+              command:
+                - /bin/sh
+                - -c
+                - "pgrep -f judge-worker > /dev/null"
+            initialDelaySeconds: 30
+            periodSeconds: 30
+
+      volumes:
+        - name: testcases
+          persistentVolumeClaim:
+            claimName: testcases
+        - name: cgroup
+          hostPath:
+            path: /sys/fs/cgroup
+            type: Directory

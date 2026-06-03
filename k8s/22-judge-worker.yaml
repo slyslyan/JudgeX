@@ -1,0 +1,98 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: judge-worker
+  namespace: judgex
+  labels:
+    app: judge-worker
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: judge-worker
+  template:
+    metadata:
+      labels:
+        app: judge-worker
+    spec:
+      # gVisor provides kernel-level isolation so user-submitted code cannot escape
+      # the sandbox even if the inner seccomp/chroot defenses are bypassed.
+      # Removes the need for privileged: true — the container itself has zero
+      # host capabilities while the inner sandbox (unshare + seccomp + chroot)
+      # runs safely inside gVisor's user-space kernel.
+      runtimeClassName: gvisor
+
+      containers:
+        - name: judge-worker
+          image: judgex-backend:latest
+          imagePullPolicy: IfNotPresent
+          command: ["judge-worker"]
+
+          envFrom:
+            - configMapRef:
+                name: judgex-config
+            - secretRef:
+                name: judgex-secret
+
+          volumeMounts:
+            - name: testcases
+              mountPath: /data/testcases
+
+          resources:
+            requests:
+              memory: "128Mi"
+              cpu: "250m"
+            limits:
+              memory: "512Mi"
+              cpu: "1000m"
+
+          # gVisor provides kernel-level isolation. CAP_SYS_CHROOT is retained
+          # to enable a chroot jail inside the sandbox (defense-in-depth).
+          # All other capabilities are dropped — the host kernel is never
+          # exposed to user-submitted code.
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 1000
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+              add:
+                - SYS_CHROOT
+            readOnlyRootFilesystem: false
+            seccompProfile:
+              type: RuntimeDefault
+
+          # Readiness: worker is ready when it can connect to NSQ
+          readinessProbe:
+            exec:
+              command:
+                - /bin/sh
+                - -c
+                - "pgrep -f judge-worker > /dev/null"
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+
+          # Liveness: restart if process dies
+          livenessProbe:
+            exec:
+              command:
+                - /bin/sh
+                - -c
+                - "pgrep -f judge-worker > /dev/null"
+            initialDelaySeconds: 30
+            periodSeconds: 30
+            timeoutSeconds: 5
+            failureThreshold: 3
+
+      volumes:
+        - name: testcases
+          persistentVolumeClaim:
+            claimName: testcases
+
+      # If gVisor is unavailable on some nodes, the RuntimeClass nodeSelector
+      # ensures pods only schedule on nodes labeled sandbox=gvisor.
+      # To label a node: kubectl label node <name> sandbox=gvisor

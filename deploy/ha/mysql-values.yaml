@@ -1,0 +1,44 @@
+# MySQL HA — Bitnami MySQL with replication
+# Install: helm repo add bitnami https://charts.bitnami.com/bitnami
+# Usage: helm upgrade --install mysql bitnami/mysql --values deploy/ha/mysql-values.yaml --namespace judgex
+architecture: replication
+
+auth:
+  rootPassword: judgex123
+  database: judgex
+  username: judgex
+  password: judgex123
+  replicationUser: replicator
+  replicationPassword: judgex123
+
+primary:
+  persistence:
+    size: 10Gi
+    storageClass: ""
+  resources:
+    requests:
+      memory: "256Mi"
+      cpu: "250m"
+    limits:
+      memory: "512Mi"
+      cpu: "500m"
+
+secondary:
+  replicas: 1
+  persistence:
+    size: 10Gi
+    storageClass: ""
+  resources:
+    requests:
+      memory: "256Mi"
+      cpu: "250m"
+    limits:
+      memory: "512Mi"
+      cpu: "500m"
+
+service:
+  ports:
+    mysql: 3306
+
+metrics:
+  enabled: false

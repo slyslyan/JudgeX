@@ -1,0 +1,171 @@
+{{- if eq .Values.sandbox.mode "gvisor" }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: judge-worker
+  namespace: {{ include "judgex.namespace" . }}
+  labels:
+    app: judge-worker
+spec:
+  replicas: {{ .Values.judgeWorker.replicas }}
+  selector:
+    matchLabels:
+      app: judge-worker
+  template:
+    metadata:
+      labels:
+        app: judge-worker
+    spec:
+      runtimeClassName: {{ .Values.sandbox.runtimeClassName }}
+      containers:
+        - name: judge-worker
+          image: {{ include "judgex.workerImage" . }}
+          imagePullPolicy: {{ .Values.judgeWorker.image.pullPolicy }}
+          command: ["judge-worker"]
+          envFrom:
+            - configMapRef:
+                name: judgex-config
+            - secretRef:
+                name: judgex-secret
+          volumeMounts:
+            - name: testcases
+              mountPath: /data/testcases
+          resources:
+{{ toYaml .Values.judgeWorker.resources | indent 12 }}
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 1000
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+              add:
+                - SYS_CHROOT
+            readOnlyRootFilesystem: false
+            seccompProfile:
+              type: RuntimeDefault
+          readinessProbe:
+            exec:
+              command:
+                - /bin/sh
+                - -c
+                - "pgrep -f judge-worker > /dev/null"
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          livenessProbe:
+            exec:
+              command:
+                - /bin/sh
+                - -c
+                - "pgrep -f judge-worker > /dev/null"
+            initialDelaySeconds: 30
+            periodSeconds: 30
+            timeoutSeconds: 5
+            failureThreshold: 3
+      volumes:
+        - name: testcases
+          persistentVolumeClaim:
+            claimName: testcases
+      {{- if .Values.sandbox.nodeSelector }}
+      nodeSelector:
+{{ toYaml .Values.sandbox.nodeSelector | indent 8 }}
+      {{- end }}
+      {{- if .Values.sandbox.tolerations }}
+      tolerations:
+{{ toYaml .Values.sandbox.tolerations | indent 8 }}
+      {{- end }}
+{{- else }}
+---
+# Native sandbox mode (k3s without gVisor)
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: judge-worker
+  namespace: {{ include "judgex.namespace" . }}
+  labels:
+    app: judge-worker
+spec:
+  replicas: {{ .Values.judgeWorker.replicas }}
+  selector:
+    matchLabels:
+      app: judge-worker
+  template:
+    metadata:
+      labels:
+        app: judge-worker
+    spec:
+      containers:
+        - name: judge-worker
+          image: {{ include "judgex.workerImage" . }}
+          imagePullPolicy: {{ .Values.judgeWorker.image.pullPolicy }}
+          command: ["judge-worker"]
+          envFrom:
+            - configMapRef:
+                name: judgex-config
+            - secretRef:
+                name: judgex-secret
+          volumeMounts:
+            - name: testcases
+              mountPath: /data/testcases
+            - name: cgroup
+              mountPath: /sys/fs/cgroup
+              readOnly: false
+          resources:
+{{ toYaml .Values.judgeWorker.native.resources | indent 12 }}
+          securityContext:
+            allowPrivilegeEscalation: true
+            capabilities:
+              add:
+{{ toYaml .Values.judgeWorker.native.capabilities.add | indent 16 }}
+            readOnlyRootFilesystem: false
+          readinessProbe:
+            exec:
+              command:
+                - /bin/sh
+                - -c
+                - "pgrep -f judge-worker > /dev/null"
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            exec:
+              command:
+                - /bin/sh
+                - -c
+                - "pgrep -f judge-worker > /dev/null"
+            initialDelaySeconds: 30
+            periodSeconds: 30
+      volumes:
+        - name: testcases
+          persistentVolumeClaim:
+            claimName: testcases
+        - name: cgroup
+          hostPath:
+            path: /sys/fs/cgroup
+            type: Directory
+{{- end }}
+---
+{{- if .Values.judgeWorker.keda.enabled }}
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: judge-worker
+  namespace: {{ include "judgex.namespace" . }}
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: judge-worker
+  minReplicaCount: {{ .Values.judgeWorker.keda.minReplicaCount }}
+  maxReplicaCount: {{ .Values.judgeWorker.keda.maxReplicaCount }}
+  cooldownPeriod: {{ .Values.judgeWorker.keda.cooldownPeriod }}
+  triggers:
+    - type: prometheus
+      metadata:
+        serverAddress: {{ .Values.judgeWorker.keda.prometheusServer }}
+        metricName: judgex_queue_depth
+        threshold: {{ .Values.judgeWorker.keda.threshold | quote }}
+        query: judgex_queue_depth
+{{- end }}

@@ -1,0 +1,69 @@
+# Chaos Mesh experiments: MySQL Stress Scenarios
+# Tests database resilience under adverse conditions.
+#
+# Usage:
+#   kubectl apply -f deploy/chaos/02-mysql-stress.yaml
+#   kubectl delete chaospodchaos mysql-pod-kill
+#   kubectl delete cpuchao mysql-cpu-stress
+
+---
+# Pod Kill: Simulates MySQL pod crash
+# Tests: connection pool reconnection, GORM retry logic, query queueing,
+#        backend graceful degradation when DB is unavailable
+apiVersion: chaos-mesh.org/v1alpha1
+kind: PodChaos
+metadata:
+  name: mysql-pod-kill
+  namespace: judgex
+spec:
+  action: pod-kill
+  mode: one
+  selector:
+    namespaces:
+      - judgex
+    labelSelectors:
+      app: mysql
+  duration: 30s
+  gracePeriod: 5
+---
+# CPU Stress: Simulates MySQL resource exhaustion
+# Tests: query timeout behavior, slow query handling, connection pooling
+#        under load, impact on API response times
+apiVersion: chaos-mesh.org/v1alpha1
+kind: StressChaos
+metadata:
+  name: mysql-cpu-stress
+  namespace: judgex
+spec:
+  mode: all
+  selector:
+    namespaces:
+      - judgex
+    labelSelectors:
+      app: mysql
+  stressors:
+    cpu:
+      workers: 4
+      load: 80
+  duration: 3m
+---
+# I/O Stress: Simulates disk pressure on MySQL
+# Tests: filesystem resilience, query performance under I/O contention,
+#        write availability, replication lag
+apiVersion: chaos-mesh.org/v1alpha1
+kind: IOChaos
+metadata:
+  name: mysql-io-stress
+  namespace: judgex
+spec:
+  action: latency
+  mode: all
+  selector:
+    namespaces:
+      - judgex
+    labelSelectors:
+      app: mysql
+  volumePath: /var/lib/mysql
+  delay: 100ms
+  percent: 50
+  duration: 3m

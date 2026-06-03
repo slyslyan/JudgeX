@@ -1,0 +1,44 @@
+# Redis HA — Bitnami Redis with Sentinel
+# Install: helm repo add bitnami https://charts.bitnami.com/bitnami
+# Usage: helm upgrade --install redis bitnami/redis --values deploy/ha/redis-values.yaml --namespace judgex
+architecture: replication
+
+auth:
+  enabled: true
+  password: judgex123
+
+sentinel:
+  enabled: true
+  quorum: 2
+  masterSet: judgex
+  resources:
+    requests:
+      memory: "64Mi"
+      cpu: "50m"
+    limits:
+      memory: "128Mi"
+      cpu: "100m"
+
+replica:
+  replicaCount: 2
+  resources:
+    requests:
+      memory: "64Mi"
+      cpu: "100m"
+    limits:
+      memory: "256Mi"
+      cpu: "200m"
+
+master:
+  resources:
+    requests:
+      memory: "64Mi"
+      cpu: "100m"
+    limits:
+      memory: "256Mi"
+      cpu: "200m"
+  persistence:
+    size: 1Gi
+
+metrics:
+  enabled: false

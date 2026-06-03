@@ -1,0 +1,74 @@
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: backend
+  namespace: judgex
+spec:
+  selector:
+    app: backend
+  ports:
+    - port: 8080
+      targetPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend
+  namespace: judgex
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: backend
+  template:
+    metadata:
+      labels:
+        app: backend
+    spec:
+      containers:
+        - name: backend
+          image: localhost/judgex-backend:latest
+          imagePullPolicy: IfNotPresent
+          command: ["server"]
+
+          ports:
+            - containerPort: 8080
+          envFrom:
+            - configMapRef:
+                name: judgex-config
+            - secretRef:
+                name: judgex-secret
+          volumeMounts:
+            - name: testcases
+              mountPath: /data/testcases
+            - name: cgroup
+              mountPath: /sys/fs/cgroup
+              readOnly: true
+          resources:
+            requests:
+              memory: "64Mi"
+              cpu: "100m"
+            limits:
+              memory: "256Mi"
+              cpu: "500m"
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 5
+      volumes:
+        - name: testcases
+          persistentVolumeClaim:
+            claimName: testcases
+        - name: cgroup
+          hostPath:
+            path: /sys/fs/cgroup
+            type: Directory

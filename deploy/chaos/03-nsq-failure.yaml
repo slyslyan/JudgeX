@@ -1,0 +1,74 @@
+# Chaos Mesh experiments: Message Queue Failure Scenarios
+# Tests submission queue resilience and judge worker availability
+# when NSQ is degraded or unavailable.
+#
+# Usage:
+#   kubectl apply -f deploy/chaos/03-nsq-failure.yaml
+#   kubectl delete chaospodchaos nsqd-pod-kill
+#   kubectl delete chaospodchaos nsqd-pod-failure
+
+---
+# Pod Kill: Simulates NSQ daemon crash
+# Tests: queue reconnection, producer retry, fallback to local in-memory queue,
+#        submission availability during NSQ outage
+apiVersion: chaos-mesh.org/v1alpha1
+kind: PodChaos
+metadata:
+  name: nsqd-pod-kill
+  namespace: judgex
+spec:
+  action: pod-kill
+  mode: one
+  selector:
+    namespaces:
+      - judgex
+    labelSelectors:
+      app: nsqd
+  duration: 1m
+  gracePeriod: 3
+---
+# Pod Failure: Makes NSQ pods unavailable for a sustained period
+# Tests: backend queue fallback (local buffer), submission queuing,
+#        reconnection when NSQ recovers, backlog processing
+apiVersion: chaos-mesh.org/v1alpha1
+kind: PodChaos
+metadata:
+  name: nsqd-pod-failure
+  namespace: judgex
+spec:
+  action: pod-failure
+  mode: one
+  selector:
+    namespaces:
+      - judgex
+    labelSelectors:
+      app: nsqd
+  duration: 3m
+---
+# Network delay from backend to NSQ
+# Tests: NSQ producer timeout, publish retry, queue buffer behavior
+apiVersion: chaos-mesh.org/v1alpha1
+kind: NetworkChaos
+metadata:
+  name: backend-nsq-latency
+  namespace: judgex
+spec:
+  action: delay
+  mode: all
+  selector:
+    namespaces:
+      - judgex
+    labelSelectors:
+      app: backend
+  delay:
+    latency: 500ms
+    jitter: 200ms
+  duration: 5m
+  target:
+    mode: all
+    selector:
+      namespaces:
+        - judgex
+      labelSelectors:
+        app: nsqd
+  direction: both

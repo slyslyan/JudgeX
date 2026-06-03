@@ -1,0 +1,61 @@
+---
+# K3s 使用 Traefik 作为默认 Ingress Controller
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: judgex
+  namespace: judgex
+  annotations:
+    # Traefik 中间件：限制上传 body 大小为 16MB（test case ZIP 上传）
+    traefik.ingress.kubernetes.io/router.middlewares: judgex-upload-limit@kubernetescrd
+spec:
+  ingressClassName: traefik
+  rules:
+    - host: judgex.local
+      http:
+        paths:
+          - path: /api
+            pathType: Prefix
+            backend:
+              service:
+                name: backend
+                port:
+                  number: 8080
+          - path: /health
+            pathType: Exact
+            backend:
+              service:
+                name: backend
+                port:
+                  number: 8080
+          - path: /ready
+            pathType: Exact
+            backend:
+              service:
+                name: backend
+                port:
+                  number: 8080
+          - path: /metrics
+            pathType: Exact
+            backend:
+              service:
+                name: backend
+                port:
+                  number: 8080
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: frontend
+                port:
+                  number: 80
+---
+# Traefik Middleware: 限制请求 body 大小 (ZIP 上传用)
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: upload-limit
+  namespace: judgex
+spec:
+  buffering:
+    maxRequestBodyBytes: 16777216  # 16 MiB
