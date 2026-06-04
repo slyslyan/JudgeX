@@ -121,7 +121,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: docker-build
     if: github.event_name == 'push' && github.ref == 'refs/heads/main' && secrets.KUBE_CONFIG != ''
-    environment: production
+    # environment: production  # uncomment when KUBE_CONFIG is configured
     steps:
       - uses: actions/checkout@v4
       - name: Set up Helm
