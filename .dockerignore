@@ -1,6 +1,5 @@
-frontend/*
-!frontend/dist
-!frontend/dist/**
+frontend/node_modules
+frontend/dist
 server
 *.md
 .git
