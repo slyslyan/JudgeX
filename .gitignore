@@ -1,8 +1,8 @@
 # Binaries
-server
-judge-worker
-importer
-server-static
+/server
+/judge-worker
+/importer
+/server-static
 *.exe
 *.dll
 *.so
