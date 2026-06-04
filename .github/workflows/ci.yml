@@ -114,35 +114,34 @@ jobs:
           cache-to: type=gha,mode=max
 
   # ---- Deploy to K8s via Helm ----
-  # Only runs when KUBE_CONFIG secret is configured (e.g. on real cluster).
-  # Skips gracefully on forks or fresh repos without k8s creds.
-  deploy:
-    name: Deploy to Kubernetes
-    runs-on: ubuntu-latest
-    needs: docker-build
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && secrets.KUBE_CONFIG != ''
-    # environment: production  # uncomment when KUBE_CONFIG is configured
-    steps:
-      - uses: actions/checkout@v4
-      - name: Set up Helm
-        uses: azure/setup-helm@v4
-        with:
-          version: v3.16.1
-      - name: Configure kubeconfig
-        run: |
-          mkdir -p $HOME/.kube
-          echo "${{ secrets.KUBE_CONFIG }}" | base64 -d > $HOME/.kube/config
-      - name: Deploy via Helm
-        run: |
-          SHORT_SHA="${GITHUB_SHA::7}"
-          helm upgrade --install judgex ./helm/judgex \
-            --values ./helm/judgex/values-prod.yaml \
-            --namespace judgex --create-namespace \
-            --set "image.backend.tag=sha-${SHORT_SHA}" \
-            --set "image.frontend.tag=sha-${SHORT_SHA}" \
-            --wait --timeout 5m
-      - name: Verify deployment
-        run: |
-          kubectl -n judgex rollout status deployment/backend --timeout=3m
-          kubectl -n judgex rollout status deployment/frontend --timeout=3m
-          kubectl -n judgex rollout status deployment/judge-worker --timeout=3m
+  # Uncomment when KUBE_CONFIG secret is configured.
+  # deploy:
+  #   name: Deploy to Kubernetes
+  #   runs-on: ubuntu-latest
+  #   needs: docker-build
+  #   if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+  #   environment: production
+  #   steps:
+  #     - uses: actions/checkout@v4
+  #     - name: Set up Helm
+  #       uses: azure/setup-helm@v4
+  #       with:
+  #         version: v3.16.1
+  #     - name: Configure kubeconfig
+  #       run: |
+  #         mkdir -p $HOME/.kube
+  #         echo "${{ secrets.KUBE_CONFIG }}" | base64 -d > $HOME/.kube/config
+  #     - name: Deploy via Helm
+  #       run: |
+  #         SHORT_SHA="${GITHUB_SHA::7}"
+  #         helm upgrade --install judgex ./helm/judgex \
+  #           --values ./helm/judgex/values-prod.yaml \
+  #           --namespace judgex --create-namespace \
+  #           --set "image.backend.tag=sha-${SHORT_SHA}" \
+  #           --set "image.frontend.tag=sha-${SHORT_SHA}" \
+  #           --wait --timeout 5m
+  #     - name: Verify deployment
+  #       run: |
+  #         kubectl -n judgex rollout status deployment/backend --timeout=3m
+  #         kubectl -n judgex rollout status deployment/frontend --timeout=3m
+  #         kubectl -n judgex rollout status deployment/judge-worker --timeout=3m
