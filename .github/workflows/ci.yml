@@ -114,11 +114,13 @@ jobs:
           cache-to: type=gha,mode=max
 
   # ---- Deploy to K8s via Helm ----
+  # Only runs when KUBE_CONFIG secret is configured (e.g. on real cluster).
+  # Skips gracefully on forks or fresh repos without k8s creds.
   deploy:
     name: Deploy to Kubernetes
     runs-on: ubuntu-latest
     needs: docker-build
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && secrets.KUBE_CONFIG != ''
     environment: production
     steps:
       - uses: actions/checkout@v4
