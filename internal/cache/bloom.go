@@ -28,8 +28,8 @@ import (
 // 解决方式是定期重建（见 RefreshLoop）。
 
 const (
-	bloomExpectedN = 10000  // 预期最大元素数（题目数上限）
-	bloomFP        = 0.01   // 目标误报率 1%
+	bloomExpectedN = 10000            // 预期最大元素数（题目数上限）
+	bloomFP        = 0.01             // 目标误报率 1%
 	bloomRefresh   = 10 * time.Minute // 重建间隔
 )
 
@@ -48,8 +48,9 @@ type BloomFilter struct {
 }
 
 // NewBloomFilter 创建一个布隆过滤器。
-//   expectedN: 预期元素数量
-//   fp: 目标误报率（0~1）
+//
+//	expectedN: 预期元素数量
+//	fp: 目标误报率（0~1）
 func NewBloomFilter(expectedN int, fp float64) *BloomFilter {
 	if expectedN <= 0 {
 		expectedN = 1

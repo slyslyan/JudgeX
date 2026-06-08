@@ -130,29 +130,29 @@ func (h *AdminHandler) DeleteUser(c *gin.Context) {
 
 // ListProblemFeedback 处理 GET /api/admin/problem-feedback。
 func (h *AdminHandler) ListProblemFeedback(c *gin.Context) {
-		status := c.Query("status")
-		problemID := c.Query("problem_id")
-		priority := c.Query("priority")
+	status := c.Query("status")
+	problemID := c.Query("problem_id")
+	priority := c.Query("priority")
 
-		// 默认按优先级排序：P1（紧急）在前，同优先级按时间倒序
-		query := database.DB.Model(&model.ProblemFeedback{}).
-			Order("CASE priority WHEN 'P1' THEN 0 ELSE 1 END, id DESC")
-		if status != "" {
-			query = query.Where("status = ?", status)
-		}
-		if problemID != "" {
-			query = query.Where("problem_id = ?", problemID)
-		}
-		if priority != "" {
-			query = query.Where("priority = ?", priority)
-		}
+	// 默认按优先级排序：P1（紧急）在前，同优先级按时间倒序
+	query := database.DB.Model(&model.ProblemFeedback{}).
+		Order("CASE priority WHEN 'P1' THEN 0 ELSE 1 END, id DESC")
+	if status != "" {
+		query = query.Where("status = ?", status)
+	}
+	if problemID != "" {
+		query = query.Where("problem_id = ?", problemID)
+	}
+	if priority != "" {
+		query = query.Where("priority = ?", priority)
+	}
 
-		var feedbacks []model.ProblemFeedback
-		query.Find(&feedbacks)
-		if feedbacks == nil {
-			feedbacks = []model.ProblemFeedback{}
-		}
-		c.JSON(http.StatusOK, gin.H{"feedbacks": feedbacks})
+	var feedbacks []model.ProblemFeedback
+	query.Find(&feedbacks)
+	if feedbacks == nil {
+		feedbacks = []model.ProblemFeedback{}
+	}
+	c.JSON(http.StatusOK, gin.H{"feedbacks": feedbacks})
 }
 
 // DeleteProblemFeedback 处理 DELETE /api/admin/problem-feedback/:id。
@@ -172,4 +172,3 @@ func (h *AdminHandler) DeleteProblemFeedback(c *gin.Context) {
 	database.DB.Delete(&feedback)
 	c.JSON(http.StatusOK, gin.H{"message": "feedback deleted"})
 }
-

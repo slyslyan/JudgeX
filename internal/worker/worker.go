@@ -154,7 +154,7 @@ func JudgeTask(task queue.JudgeTask) {
 		// 处理非 Accepted 状态（运行异常）
 		// ================================================================
 		// 可能的状态：TLE（超时）、MLE（超内存）、Runtime Error、Compile Error
-		if result.Status != judge.StatusAccepted {//是不是第一次错误
+		if result.Status != judge.StatusAccepted { //是不是第一次错误
 			if firstErrMsg == "" {
 				firstErrMsg = result.ErrorMsg
 			}
