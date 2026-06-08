@@ -1,0 +1,13 @@
+FROM alpine:3.21
+
+RUN apk add --no-cache python3 g++ ca-certificates tzdata && \
+    mkdir -p /data/testcases
+
+COPY server /usr/local/bin/server
+COPY judge-worker /usr/local/bin/judge-worker
+COPY frontend/dist /usr/local/share/judgex/frontend
+
+ENV FRONTEND_DIST=/usr/local/share/judgex/frontend
+
+EXPOSE 8080
+CMD ["server"]

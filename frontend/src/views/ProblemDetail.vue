@@ -28,7 +28,8 @@ async function copyToClipboard(text: string, id: string) {
     await navigator.clipboard.writeText(text)
     copiedId.value = id
     setTimeout(() => { copiedId.value = null }, 1500)
-  } catch {
+  } catch (e) {
+    console.error('Clipboard fallback:', e)
     const ta = document.createElement('textarea')
     ta.value = text
     ta.style.position = 'fixed'
@@ -80,7 +81,8 @@ onMounted(async () => {
   try {
     const res = await getProblem(problemId.value)
     problem.value = res.data
-  } catch {
+  } catch (e) {
+    console.error('Failed to load problem:', e)
     router.push('/problems')
     return
   }
@@ -233,6 +235,7 @@ async function submit() {
           <button
             class="rounded-xl border border-brand-200 bg-gradient-to-br from-brand-50 to-brand-100 px-4 py-1.5 text-xs font-semibold text-brand-700 shadow-sm transition-all duration-200 hover:shadow-md hover:scale-105 dark:from-brand-900/20 dark:to-brand-900/30 dark:border-brand-800 dark:text-brand-400"
             @click="askForHint"
+            aria-label="需要提示"
           >
             需要提示？
           </button>
@@ -331,14 +334,16 @@ async function submit() {
           :disabled="submitting"
           class="btn-gradient"
           @click="submit"
+          aria-label="提交代码"
         >
           {{ submitting ? '提交中...' : '提交' }}
         </button>
         <button
-          class="rounded-xl border border-purple-200 bg-gradient-to-br from-purple-50 to-purple-100 px-4 py-2 text-sm font-semibold text-purple-700 shadow-sm transition-all duration-200 hover:shadow-md hover:scale-105 dark:from-purple-900/20 dark:to-purple-900/30 dark:border-purple-800 dark:text-purple-400"
+          class="rounded-xl border border-brand-200 bg-gradient-to-br from-brand-50 to-brand-100 px-4 py-2 text-sm font-semibold text-brand-700 shadow-sm transition-all duration-200 hover:shadow-md hover:scale-105 dark:from-brand-900/20 dark:to-brand-900/30 dark:border-brand-800 dark:text-brand-400"
           @click="toggleAiDebug"
         >
-          🐛 AI Debug
+          <svg class="mr-1 h-3.5 w-3.5 inline" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a4.5 4.5 0 00-3.09-3.09L13.5 5.25l1.035-.259a4.5 4.5 0 003.09-3.09L18 .75l.259 1.035a4.5 4.5 0 003.09 3.09L22.5 5.25l-1.035.259a4.5 4.5 0 00-3.09 3.09z"/></svg>
+          AI Debug
         </button>
       </div>
 
@@ -362,9 +367,9 @@ async function submit() {
         <div class="flex items-center justify-between bg-gradient-to-r from-zinc-50 to-zinc-100 px-4 py-2.5 dark:from-zinc-900 dark:to-zinc-900/50">
           <span class="text-xs font-bold text-zinc-500 uppercase tracking-wider">调试控制台</span>
           <div class="flex items-center gap-2">
-            <button class="rounded-lg px-3 py-1 text-xs font-medium text-zinc-500 transition-all duration-200 hover:bg-zinc-200 hover:text-zinc-700 dark:hover:bg-zinc-800 dark:hover:text-zinc-300" @click="loadSampleInput">加载示例</button>
-            <button :disabled="runningCode" class="rounded-lg bg-brand-600 px-4 py-1.5 text-xs font-semibold text-white shadow-sm shadow-brand-500/25 transition-all duration-200 hover:bg-brand-700 hover:shadow-md disabled:opacity-50" @click="handleRun">{{ runningCode ? '运行中...' : '运行' }}</button>
-            <button class="rounded-lg px-2 py-1 text-xs font-medium text-zinc-400 transition-colors hover:text-zinc-600 dark:hover:text-zinc-300" @click="showDebug = false">收起</button>
+            <button class="rounded-lg px-3 py-1 text-xs font-medium text-zinc-500 transition-all duration-200 hover:bg-zinc-200 hover:text-zinc-700 dark:hover:bg-zinc-800 dark:hover:text-zinc-300" @click="loadSampleInput" aria-label="加载示例输入">加载示例</button>
+            <button :disabled="runningCode" class="rounded-lg bg-brand-600 px-4 py-1.5 text-xs font-semibold text-white shadow-sm shadow-brand-500/25 transition-all duration-200 hover:bg-brand-700 hover:shadow-md disabled:opacity-50" @click="handleRun" aria-label="运行代码">{{ runningCode ? '运行中...' : '运行' }}</button>
+            <button class="rounded-lg px-2 py-1 text-xs font-medium text-zinc-400 transition-colors hover:text-zinc-600 dark:hover:text-zinc-300" @click="showDebug = false" aria-label="收起调试控制台">收起</button>
           </div>
         </div>
 

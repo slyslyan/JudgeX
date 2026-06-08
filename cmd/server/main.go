@@ -88,6 +88,7 @@ func main() {
 	middleware.InitAuth(cfg) // JWT 密钥
 	database.Init(cfg)       // MySQL / GORM 连接池
 	cache.Init()             // Redis 连接
+	cache.InitBloomFilter()  // Bloom Filter 防穿透（从数据库加载所有题目 ID）
 	storage.Init()           // 文件存储后端（本地磁盘 / S3）
 
 	// 初始化 OpenTelemetry 分布式追踪
@@ -104,6 +105,7 @@ func main() {
 		&model.ContestProblem{},
 		&model.Announcement{},
 		&model.ProblemTag{},
+		&model.ProblemFeedback{},
 	); err != nil {
 		log.Fatalf("auto migration failed: %v", err)
 	}
@@ -297,6 +299,8 @@ func main() {
 			admin.POST("/announcements", announcementH.Create)
 			admin.PUT("/announcements/:id", announcementH.Update)
 			admin.DELETE("/announcements/:id", announcementH.Delete)
+			admin.GET("/problem-feedback", adminH.ListProblemFeedback)
+			admin.DELETE("/problem-feedback/:id", adminH.DeleteProblemFeedback)
 		}
 	}
 

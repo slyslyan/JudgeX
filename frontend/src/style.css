@@ -39,13 +39,15 @@ body {
    ============================================= */
 
 /* Elevated card — soft shadow, no visible border */
-.apple-card {
+.apple-card,
+.card-premium {
   background: #fff;
   border-radius: 1.25rem;
   box-shadow: 0 1px 3px rgb(0 0 0 / 0.04), 0 8px 24px rgb(0 0 0 / 0.04);
   transition: box-shadow 0.3s ease;
 }
-.apple-card:hover {
+.apple-card:hover,
+.card-premium:hover {
   box-shadow: 0 1px 3px rgb(0 0 0 / 0.06), 0 12px 32px rgb(0 0 0 / 0.06);
 }
 
@@ -116,7 +118,8 @@ body {
 }
 
 /* Input — soft filled */
-.apple-input {
+.apple-input,
+.input-glow {
   background: #f5f5f7;
   border: 1px solid transparent;
   border-radius: 0.75rem;
@@ -127,17 +130,20 @@ body {
   outline: none;
   width: 100%;
 }
-.apple-input::placeholder {
+.apple-input::placeholder,
+.input-glow::placeholder {
   color: #86868b;
 }
-.apple-input:focus {
+.apple-input:focus,
+.input-glow:focus {
   background: #fff;
   border-color: #0071e3;
   box-shadow: 0 0 0 3px rgb(0 113 227 / 0.15);
 }
 
 /* Table — clean, minimal */
-.apple-table {
+.apple-table,
+.table-premium {
   background: #fff;
   border-radius: 1.25rem;
   overflow: hidden;
@@ -177,35 +183,6 @@ body {
     #f5f5f7;
 }
 
-/* Keep for backward compatibility in existing templates */
-.btn-gradient {
-  background: #0071e3;
-  color: #fff;
-  font-weight: 500;
-  font-size: 0.875rem;
-  border-radius: 9999px;
-  padding: 0.625rem 1.5rem;
-  border: none;
-  transition: all 0.2s ease;
-  cursor: pointer;
-}
-.btn-gradient:hover { background: #0066cc; }
-.btn-gradient:active { transform: scale(0.97); }
-
-.input-glow { transition: all 0.2s ease; }
-.input-glow:focus {
-  outline: none;
-  border-color: #0071e3;
-  box-shadow: 0 0 0 3px rgb(0 113 227 / 0.15);
-}
-
-.table-premium {
-  background: #fff;
-  border-radius: 1.25rem;
-  overflow: hidden;
-  box-shadow: 0 1px 3px rgb(0 0 0 / 0.04), 0 8px 24px rgb(0 0 0 / 0.04);
-}
-
 .stat-card {
   background: #fff;
   border-radius: 1.25rem;
@@ -213,22 +190,7 @@ body {
   box-shadow: 0 1px 3px rgb(0 0 0 / 0.04), 0 4px 12px rgb(0 0 0 / 0.04);
 }
 
-.card-premium {
-  background: #fff;
-  border-radius: 1.25rem;
-  box-shadow: 0 1px 3px rgb(0 0 0 / 0.04), 0 8px 24px rgb(0 0 0 / 0.04);
-  transition: box-shadow 0.3s ease;
-}
-.card-premium:hover {
-  box-shadow: 0 1px 3px rgb(0 0 0 / 0.06), 0 12px 32px rgb(0 0 0 / 0.06);
-}
-
-.text-gradient {
-  background: linear-gradient(135deg, #0071e3, #5856d6);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-}
+.text-gradient,
 .text-gradient-brand {
   background: linear-gradient(135deg, #0071e3, #5856d6);
   -webkit-background-clip: text;
@@ -276,11 +238,13 @@ body.dark {
   border-color: #555557;
 }
 
-.dark .apple-input {
+.dark .apple-input,
+.dark .input-glow {
   background: #28282a;
   color: #f5f5f7;
 }
-.dark .apple-input:focus {
+.dark .apple-input:focus,
+.dark .input-glow:focus {
   background: #1e1e20;
   border-color: #0071e3;
 }

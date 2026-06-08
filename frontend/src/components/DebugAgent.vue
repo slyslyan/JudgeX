@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref, watch, nextTick } from 'vue'
 import { useAiDebug, type DebugTestResult } from '../composables/useAiDebug'
 import MarkdownRenderer from './MarkdownRenderer.vue'
 
@@ -15,6 +15,15 @@ const emit = defineEmits<{
 }>()
 
 const { state, streaming, startDebug, abort, reset } = useAiDebug()
+const analysisRef = ref<HTMLElement | null>(null)
+
+// 分析报告生成后自动滚动到分析区域（让用户知道结果在哪）
+watch(() => state.value.analysis, async () => {
+  if (state.value.analysis.length > 10 && analysisRef.value) {
+    await nextTick()
+    analysisRef.value.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }
+})
 
 const hasResults = computed(() => state.value.testResults && state.value.testResults.length > 0)
 const hasAnalysis = computed(() => state.value.analysis.length > 0)
@@ -212,8 +221,18 @@ const progressPercent = computed(() => {
       </div>
 
       <!-- AI Analysis -->
-      <div v-if="hasAnalysis" class="mb-5">
-        <h3 class="text-xs font-bold text-zinc-500 uppercase tracking-wider mb-3">AI 分析报告</h3>
+      <div
+        v-if="hasAnalysis"
+        ref="analysisRef"
+        class="mb-5 rounded-xl border-2 p-4 transition-all duration-500"
+        :class="hasFix ? 'border-transparent' : 'border-brand-200 bg-brand-50/30 dark:bg-brand-900/10 dark:border-brand-800'"
+      >
+        <div class="flex items-center justify-between mb-3">
+          <h3 class="text-xs font-bold text-zinc-500 uppercase tracking-wider">AI 分析报告</h3>
+          <span v-if="!hasFix && state.phase === 'done'" class="rounded-full bg-brand-100 px-2.5 py-0.5 text-[10px] font-semibold text-brand-700 dark:bg-brand-900/30 dark:text-brand-400">
+            ⬇ 查看分析
+          </span>
+        </div>
         <div class="rounded-xl border border-zinc-200 bg-zinc-50/50 p-4 text-sm text-zinc-700 leading-relaxed">
           <MarkdownRenderer :content="state.analysis" />
           <span

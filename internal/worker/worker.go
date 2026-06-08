@@ -154,7 +154,7 @@ func JudgeTask(task queue.JudgeTask) {
 		// 处理非 Accepted 状态（运行异常）
 		// ================================================================
 		// 可能的状态：TLE（超时）、MLE（超内存）、Runtime Error、Compile Error
-		if result.Status != judge.StatusAccepted {
+		if result.Status != judge.StatusAccepted {//是不是第一次错误
 			if firstErrMsg == "" {
 				firstErrMsg = result.ErrorMsg
 			}
@@ -169,7 +169,7 @@ func JudgeTask(task queue.JudgeTask) {
 						"total_cases":   totalCases,
 						"error_message": result.ErrorMsg,
 					})
-				publishSubmissionStatus(task.SubmissionID, result.Status, result.TimeUsed, result.MemoryUsed)
+				publishSubmissionStatus(task.SubmissionID, result.Status, result.TimeUsed, result.MemoryUsed, passedCount, totalCases)
 				metrics.IncSubmission(result.Status)
 				cacheDedupResult(task.UserID, task.ProblemID, task.Language, task.Code, result.Status)
 				slog.Info("judge result", "submission_id", task.SubmissionID, "status", result.Status, "case", fmt.Sprintf("%d/%d", passedCount+1, totalCases))
@@ -201,7 +201,7 @@ func JudgeTask(task queue.JudgeTask) {
 						"total_cases":   totalCases,
 						"error_message": firstErrMsg,
 					})
-				publishSubmissionStatus(task.SubmissionID, judge.StatusWrongAnswer, result.TimeUsed, result.MemoryUsed)
+				publishSubmissionStatus(task.SubmissionID, judge.StatusWrongAnswer, result.TimeUsed, result.MemoryUsed, passedCount, totalCases)
 				metrics.IncSubmission(judge.StatusWrongAnswer)
 				cacheDedupResult(task.UserID, task.ProblemID, task.Language, task.Code, judge.StatusWrongAnswer)
 				slog.Info("judge result", "submission_id", task.SubmissionID, "status", judge.StatusWrongAnswer, "case", fmt.Sprintf("%d/%d", passedCount+1, totalCases))
@@ -278,7 +278,7 @@ func JudgeTask(task queue.JudgeTask) {
 	// ====================================================================
 	// 结果发布 & 赛后处理
 	// ====================================================================
-	publishSubmissionStatus(task.SubmissionID, finalStatus, maxTime, maxMem)
+	publishSubmissionStatus(task.SubmissionID, finalStatus, maxTime, maxMem, passedCount, totalCases)
 	metrics.IncSubmission(finalStatus)
 	cacheDedupResult(task.UserID, task.ProblemID, task.Language, task.Code, finalStatus)
 	slog.Info("judge result", "submission_id", task.SubmissionID, "status", finalStatus, "time_ms", maxTime, "passed", fmt.Sprintf("%d/%d", passedCount, totalCases))
@@ -287,7 +287,9 @@ func JudgeTask(task queue.JudgeTask) {
 		handler.UpdateContestRanking(*task.ContestID, task.UserID, task.ProblemID, finalStatus, time.Now())
 	}
 
-	// 清除题目缓存，使前端列表反映最新的 AC 计数
+	// AC 后 DB 中 accepted_count 已 +1（见行 269 的 Update）
+	// problem:{id} 缓存了完整 Problem 对象（含 accepted_count，TTL 10 分钟）
+	// 必须清除才能让前端列表和详情回源 DB 看到最新计数
 	cache.Del("problem:" + strconv.FormatUint(uint64(task.ProblemID), 10))
 }
 
@@ -483,7 +485,9 @@ func loadTestCasesFromMySQL(problemID uint) ([]testCaseDisk, error) {
 // ============================================================================
 
 // dedupKey 生成提交去重的 Redis key。
-// 使用 SHA256(userID:problemID:language:code) 确保唯一性。
+// 格式: "dedup:" + SHA256(userID:problemID:language:code) 的 16 进制编码（64 字符）。
+// SHA256 将任意长度输入压缩为固定 32 字节输出，确保 key 长度恒定。
+// 相比直接用原始 code 当 key：避免超长 key、规避特殊字符、长度可控。
 func dedupKey(userID, problemID uint, language, code string) string {
 	hash := sha256.Sum256([]byte(fmt.Sprintf("%d:%d:%s:%s", userID, problemID, language, code)))
 	return "dedup:" + hex.EncodeToString(hash[:])
@@ -498,12 +502,14 @@ func cacheDedupResult(userID, problemID uint, language, code, status string) {
 // publishSubmissionStatus 通过 Redis Pub/Sub 推送提交状态更新。
 // 前端 SSE 端点（StreamEvents）订阅了 "submission:{id}" 频道，
 // 收到消息后会立即推送给等待中的客户端。
-func publishSubmissionStatus(id int64, status string, timeUsed, memUsed int) {
+func publishSubmissionStatus(id int64, status string, timeUsed, memUsed, passedCount, totalCases int) {
 	data, _ := json.Marshal(map[string]interface{}{
-		"id":          id,
-		"status":      status,
-		"time_used":   timeUsed,
-		"memory_used": memUsed,
+		"id":           id,
+		"status":       status,
+		"time_used":    timeUsed,
+		"memory_used":  memUsed,
+		"passed_count": passedCount,
+		"total_cases":  totalCases,
 	})
 	cache.Publish("submission:"+strconv.FormatInt(id, 10), string(data))
 }

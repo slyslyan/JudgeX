@@ -46,3 +46,9 @@ tmp/
 # Claude Code local settings (may contain credentials)
 .claude/settings.local.json
 CLAUDE.md
+
+# Personal learning notes (not for public repo)
+STUDY_GUIDE.md
+JudgeX-面试题库-完整版.md
+PROJECT_INTRO.md
+.claude/

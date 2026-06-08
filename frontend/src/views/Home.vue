@@ -52,14 +52,14 @@ onMounted(async () => {
     contestCount.value = c.data.total
     recentContests.value = (c.data.contests as Contest[]).slice(0, 5)
     announcements.value = a.data.announcements
-  } catch { /* ignore */ }
+  } catch (e) { console.error('Failed to load home data:', e) }
   loadingContests.value = false
   loadingAnnouncements.value = false
 
   try {
     const lb = await getLeaderboard()
     leaderboard.value = lb.data.leaderboard.slice(0, 10)
-  } catch { /* ignore */ }
+  } catch (e) { console.error('Failed to load leaderboard:', e) }
   loadingLeaderboard.value = false
 })
 
@@ -160,7 +160,7 @@ onMounted(async () => {
         <div class="flex flex-col gap-6">
 
           <!-- Stats cards -->
-          <div class="grid grid-cols-2 gap-3">
+          <div class="grid grid-cols-2 gap-3 max-sm:grid-cols-1">
             <div class="apple-card p-5 text-center">
               <div class="text-2xl font-bold text-brand-500 tabular-nums">{{ solvedCount }}</div>
               <div class="mt-1 text-[13px] text-zinc-400">题目总数</div>

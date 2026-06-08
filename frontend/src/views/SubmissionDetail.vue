@@ -82,20 +82,20 @@ function connectSSE(id: number) {
             if (line.startsWith('data: ')) {
               try {
                 const data = JSON.parse(line.slice(6))
-                submission.value = data
+                submission.value = { ...submission.value, ...data }
                 if (data.status !== 'pending' && data.status !== 'judging') {
                   reader.cancel()
                   return
                 }
-              } catch { /* ignore parse errors */ }
+              } catch (e) { console.error('SSE parse error:', e) }
             }
           }
           read()
-        }).catch(() => {})
+        }).catch((e) => { console.error('SSE read error:', e) })
       }
       read()
     })
-    .catch(() => {})
+    .catch((e) => { console.error('SSE fetch error:', e) })
 }
 
 onMounted(async () => {
@@ -154,10 +154,11 @@ watch(submission, async () => {
         AI 诊断
       </button>
       <button
-        class="inline-flex items-center gap-1.5 rounded-xl border border-purple-200 bg-gradient-to-br from-purple-50 to-purple-100 px-3.5 py-2 text-sm font-medium text-purple-700 shadow-sm transition-all duration-200 hover:shadow-md dark:from-purple-900/20 dark:to-purple-900/30 dark:border-purple-800 dark:text-purple-400"
+        class="inline-flex items-center gap-1.5 rounded-xl border border-brand-200 bg-gradient-to-br from-brand-50 to-brand-100 px-3.5 py-2 text-sm font-medium text-brand-700 shadow-sm transition-all duration-200 hover:shadow-md dark:from-brand-900/20 dark:to-brand-900/30 dark:border-brand-800 dark:text-brand-400"
         @click="showAiDebug = !showAiDebug"
       >
-        🐛 AI Debug
+        <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a4.5 4.5 0 00-3.09-3.09L13.5 5.25l1.035-.259a4.5 4.5 0 003.09-3.09L18 .75l.259 1.035a4.5 4.5 0 003.09 3.09L22.5 5.25l-1.035.259a4.5 4.5 0 00-3.09 3.09z"/></svg>
+        AI Debug
       </button>
     </div>
 

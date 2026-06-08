@@ -94,6 +94,11 @@ const router = createRouter({
           name: 'AdminAnnouncements',
           component: () => import('../views/admin/Announcements.vue'),
         },
+        {
+          path: 'problem-feedback',
+          name: 'AdminProblemFeedback',
+          component: () => import('../views/admin/ProblemFeedback.vue'),
+        },
       ],
     },
 
@@ -122,6 +127,11 @@ const router = createRouter({
       path: '/admin/problems/:id/testcases',
       name: 'TestCases',
       component: () => import('../views/admin/TestCases.vue'),
+    },
+    {
+      path: '/:pathMatch(.*)*',
+      name: 'NotFound',
+      component: () => import('../views/NotFound.vue'),
     },
   ],
 })

@@ -461,13 +461,16 @@ func (h *SubmissionHandler) StreamEvents(c *gin.Context) {
 			if !ok {
 				return
 			}
-			var updated model.Submission
-			if err := json.Unmarshal([]byte(msg), &updated); err != nil {
+			// 只发送发布消息中包含的字段（id, status, time_used 等），
+			// 而不是反序列化为完整 Submission struct — 那样会引入零值
+			// 覆盖前端已经有的 problem_id / code / language 等字段。
+			var eventData map[string]interface{}
+			if err := json.Unmarshal([]byte(msg), &eventData); err != nil {
 				continue
 			}
-			writeEvent(updated)
+			writeEvent(eventData)
 			// 如果到达终态，自动关闭 SSE 连接
-			if updated.Status != "pending" && updated.Status != "judging" {
+			if status, ok := eventData["status"].(string); ok && status != "pending" && status != "judging" {
 				return
 			}
 		}

@@ -74,7 +74,7 @@ onMounted(async () => {
         userTemplates.value = res.data.templates
         templateCode.value = res.data.templates[templateLang.value] || defaultTemplates[templateLang.value]
       }
-    } catch { /* ignore */ }
+    } catch (e) { console.error('Failed to load templates:', e) }
   }
 })
 

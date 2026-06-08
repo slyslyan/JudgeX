@@ -5,6 +5,7 @@ import { getProblems, deleteProblem, type Problem, type ProblemTag } from '../ap
 
 const router = useRouter()
 const problems = ref<Problem[]>([])
+const loading = ref(true)
 const total = ref(0)
 const page = ref(1)
 const pageSize = 20
@@ -57,11 +58,18 @@ const isAdmin = computed(() => {
 })
 
 async function load() {
-  const res = await getProblems(page.value, pageSize, search.value, selectedTag.value)
-  problems.value = res.data.problems
-  total.value = res.data.total
-  totalPages.value = Math.ceil(total.value / pageSize)
-  if (res.data.tags) allTags.value = res.data.tags
+  loading.value = true
+  try {
+    const res = await getProblems(page.value, pageSize, search.value, selectedTag.value)
+    problems.value = res.data.problems
+    total.value = res.data.total
+    totalPages.value = Math.ceil(total.value / pageSize)
+    if (res.data.tags) allTags.value = res.data.tags
+  } catch (e) {
+    console.error('Failed to load problems:', e)
+  } finally {
+    loading.value = false
+  }
 }
 
 function goTo(id: number) {
@@ -158,7 +166,12 @@ function onSearchInput() {
       </div>
     </div>
 
-    <div class="apple-table">
+    <div v-if="loading" class="flex items-center justify-center py-20 text-sm text-zinc-400">
+      <svg class="mr-2 h-4 w-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
+      加载中...
+    </div>
+
+    <div v-else class="apple-table">
       <table class="w-full">
         <thead>
           <tr>

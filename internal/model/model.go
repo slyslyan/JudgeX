@@ -147,6 +147,42 @@ type Submission struct {
 }
 
 // ============================================================================
+// ProblemFeedback AI 对题目/测试数据的质量反馈
+// ============================================================================
+
+// ProblemFeedback 记录 AI Debug Agent 在分析过程中发现的题目质量问题。
+//
+// 优先级（Priority）说明：
+//   P1（紧急）— 测试数据与描述矛盾、样例错误等客观可验证的数据错误
+//               管理员需要优先处理，因为会影响所有用户
+//   P2（一般）— 题目描述有歧义、测试覆盖不足等主观判断
+//               可以在有空的时候再看，不紧急
+//
+// 触发场景：
+//   - 问题描述有歧义，导致用户反复在特定测试点上 WA
+//   - 样例输入/输出与描述不符
+//   - 隐藏测试数据疑似有误（如约束与描述不一致）
+//
+// 避免幻觉的策略：
+//   - 只保存 confidence="high" 的反馈
+//   - 每条反馈必须有 evidence 字段，记录具体矛盾点
+//   - 人工审核后才变为 "confirmed"
+type ProblemFeedback struct {
+	ID           uint      `gorm:"primaryKey" json:"id"`
+	ProblemID    uint      `gorm:"index;not null" json:"problem_id"`
+	UserID       uint      `gorm:"index;not null" json:"user_id"`
+	SubmissionID int64     `json:"submission_id"`
+	FeedbackType string    `gorm:"size:32;not null" json:"feedback_type"` // "unclear_description", "suspicious_testdata", "sample_error"
+	Priority     string    `gorm:"size:4;default:P2" json:"priority"`     // "P1"=紧急(数据错误), "P2"=一般(表述问题)
+	Description  string    `gorm:"type:text" json:"description"`          // AI 生成的问题描述
+	Evidence     string    `gorm:"type:text" json:"evidence"`             // 具体证据（引用哪个测试点、哪段描述）
+	Confidence   string    `gorm:"size:16;not null" json:"confidence"`    // "high" 或 "medium"，只有 high 才保存
+	Status       string    `gorm:"size:16;default:pending" json:"status"` // "pending", "confirmed", "dismissed"
+	CreatedAt    time.Time `json:"created_at"`
+	ReviewNote   string    `gorm:"type:text" json:"review_note,omitempty"` // 管理员审核意见
+}
+
+// ============================================================================
 // TestCase 测试用例（已废弃）
 // ============================================================================
 

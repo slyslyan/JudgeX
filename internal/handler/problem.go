@@ -92,6 +92,7 @@ func (h *ProblemHandler) Create(c *gin.Context) {
 	syncProblemTags(problem.ID, req.Tags)
 
 	cache.Del("problems:list")
+	cache.AddProblemID(uint64(problem.ID)) // Bloom Filter 添加新 ID
 	database.DB.Preload("Tags").First(&problem, problem.ID)
 	c.JSON(http.StatusCreated, problem)
 }
@@ -182,6 +183,13 @@ func (h *ProblemHandler) Get(c *gin.Context) {
 	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid problem id"})
+		return
+	}
+
+	// 第零级：Bloom Filter 拦截不存在的 ID（防穿透）
+	// 说"不存在"就一定不存在，直接返回 404，完全避免访问 Redis 和 DB
+	if !cache.MightHaveProblem(id) {
+		c.JSON(http.StatusNotFound, gin.H{"error": "problem not found"})
 		return
 	}
 

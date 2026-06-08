@@ -8,6 +8,7 @@ const route = useRoute()
 
 const isDark = ref(document.documentElement.classList.contains('dark'))
 const showCoach = ref(false)
+const showMobileMenu = ref(false)
 
 function toggleDark() {
   isDark.value = !isDark.value
@@ -23,7 +24,7 @@ function readUser() {
 const user = ref(readUser())
 const isLoggedIn = computed(() => !!user.value)
 
-watch(() => route.path, () => { user.value = readUser() })
+watch(() => route.path, () => { user.value = readUser(); showMobileMenu.value = false })
 
 function logout() {
   localStorage.removeItem('token')
@@ -77,11 +78,21 @@ const navLinks = [
         </router-link>
 
         <button
+          class="flex h-8 w-8 items-center justify-center rounded-full text-sm text-zinc-500 transition-colors hover:bg-zinc-100 sm:hidden dark:text-zinc-400 dark:hover:bg-zinc-800"
+          @click="showMobileMenu = !showMobileMenu"
+          aria-label="打开菜单"
+        >
+          <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5"/></svg>
+        </button>
+
+        <button
           class="flex h-8 w-8 items-center justify-center rounded-full text-sm text-zinc-500 transition-colors hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-zinc-800"
           @click="toggleDark"
           :title="isDark ? '浅色模式' : '深色模式'"
+          aria-label="切换主题"
         >
-          <span>{{ isDark ? '☀' : '☾' }}</span>
+          <svg v-if="isDark" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 3v2.25m6.364.386l-1.591 1.591M21 12h-2.25m-.386 6.364l-1.591-1.591M12 18.75V21m-4.773-4.227l-1.591 1.591M5.25 12H3m4.227-4.773L5.636 5.636M15.75 12a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0z"/></svg>
+          <svg v-else class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M21.752 15.002A9.718 9.718 0 0118 15.75c-5.385 0-9.75-4.365-9.75-9.75 0-1.33.266-2.597.748-3.752A9.753 9.753 0 003 11.25C3 16.635 7.365 21 12.75 21a9.753 9.753 0 009.002-5.998z"/></svg>
         </button>
 
         <template v-if="isLoggedIn">
@@ -89,6 +100,7 @@ const navLinks = [
             v-if="user?.role === 'admin' || user?.role === 'super_admin'"
             class="flex h-8 w-8 items-center justify-center rounded-full text-sm text-zinc-400 transition-colors hover:bg-zinc-100 dark:hover:bg-zinc-800"
             title="管理"
+            aria-label="管理后台"
             @click="router.push('/admin/dashboard')"
           >
             <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
@@ -100,6 +112,7 @@ const navLinks = [
           <button
             class="flex h-8 w-8 items-center justify-center rounded-full text-sm text-zinc-400 transition-colors hover:bg-zinc-100 dark:hover:bg-zinc-800"
             title="AI 助手"
+            aria-label="AI 助手"
             @click="showCoach = !showCoach"
           >
             <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
@@ -132,6 +145,7 @@ const navLinks = [
           <button
             class="flex h-8 w-8 items-center justify-center rounded-full text-sm text-zinc-400 transition-colors hover:bg-red-50 hover:text-red-500 dark:hover:bg-red-900/20 dark:hover:text-red-400"
             title="退出登录"
+            aria-label="退出登录"
             @click="logout"
           >
             <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/></svg>
@@ -142,4 +156,41 @@ const navLinks = [
       </div>
     </div>
   </header>
+
+  <!-- Mobile nav drawer -->
+  <Transition name="mobile-nav">
+    <div v-if="showMobileMenu && isLoggedIn" class="fixed inset-x-0 top-12 z-40 border-b border-zinc-200/60 bg-white/95 backdrop-blur-2xl shadow-lg sm:hidden dark:bg-[#161616]/95 dark:border-zinc-800">
+      <nav class="flex flex-col px-4 py-3">
+        <router-link
+          v-for="link in navLinks"
+          :key="link.path"
+          :to="link.path"
+          class="rounded-xl px-4 py-3 text-sm font-medium text-zinc-600 transition-colors hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-zinc-800"
+          active-class="!text-zinc-900 dark:!text-white !bg-zinc-100 dark:!bg-zinc-800"
+          @click="showMobileMenu = false"
+        >
+          {{ link.label }}
+        </router-link>
+        <router-link
+          to="/playground"
+          class="rounded-xl px-4 py-3 text-sm font-medium text-zinc-600 transition-colors hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-zinc-800"
+          @click="showMobileMenu = false"
+        >
+          Playground
+        </router-link>
+      </nav>
+    </div>
+  </Transition>
 </template>
+
+<style scoped>
+.mobile-nav-enter-active,
+.mobile-nav-leave-active {
+  transition: opacity 0.15s ease, transform 0.15s ease;
+}
+.mobile-nav-enter-from,
+.mobile-nav-leave-to {
+  opacity: 0;
+  transform: translateY(-8px);
+}
+</style>

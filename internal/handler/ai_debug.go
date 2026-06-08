@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"regexp"
 	"sort"
 	"strconv"
 	"strings"
@@ -92,8 +93,6 @@ func DebugHandler(c *gin.Context) {
 	// ================================================================
 	// SSE 连接建立
 	// ================================================================
-	// 设置必要的 SSE 头。SSE 是基于 HTTP 长连接的单向推送协议，
-	// 前端通过 EventSource API 消费。
 	c.Header("Content-Type", "text/event-stream")
 	c.Header("Cache-Control", "no-cache")
 	c.Header("Connection", "keep-alive")
@@ -105,10 +104,6 @@ func DebugHandler(c *gin.Context) {
 		return
 	}
 
-	// writeSSE 发送一个 SSE 事件。
-	// event 参数指定事件类型（如 "status", "token", "error", "done"），
-	// data 参数是事件的数据内容。
-	// 使用空 event 发送未命名事件（data: xxx\n\n）。
 	writeSSE := func(event, data string) {
 		if event != "" {
 			_, _ = fmt.Fprintf(c.Writer, "event: %s\ndata: %s\n\n", event, data)
@@ -118,7 +113,6 @@ func DebugHandler(c *gin.Context) {
 		flusher.Flush()
 	}
 
-	// 带超时的 context，整个调试流程不能超过 2 分钟
 	ctx, cancel := context.WithTimeout(c.Request.Context(), debugStreamTimeout)
 	defer cancel()
 
@@ -150,7 +144,6 @@ func DebugHandler(c *gin.Context) {
 	// ================================================================
 	// Step 3: 加载测试数据
 	// ================================================================
-	// 按优先级依次尝试：S3/MinIO → 本地磁盘 → MySQL test_cases 表
 	writeSSE("status", "正在加载测试数据...")
 
 	tcs, err := loadTestCasesForDebug(req.ProblemID)
@@ -160,7 +153,6 @@ func DebugHandler(c *gin.Context) {
 		return
 	}
 
-	// 限制测试点数量（最多 10 个），防止调试耗时过长
 	if len(tcs) > maxDebugCases {
 		tcs = tcs[:maxDebugCases]
 	}
@@ -186,15 +178,18 @@ func DebugHandler(c *gin.Context) {
 		default:
 		}
 
-		// 在沙箱中运行用户代码
 		result := judge.Run(req.Language, req.Code, tc.Input, problem.TimeLimit, problem.MemoryLimit)
 
-		// 判定结果：状态必须为 Accepted 且输出匹配期望
 		passed := false
 		if result.Status == judge.StatusAccepted {
 			if err := judge.CompareOutput(tc.Expected, result.Output); err == nil {
 				passed = true
 			}
+		}
+
+		displayStatus := result.Status
+		if !passed && displayStatus == judge.StatusAccepted {
+			displayStatus = judge.StatusWrongAnswer
 		}
 
 		testResults = append(testResults, debugTestResult{
@@ -203,13 +198,12 @@ func DebugHandler(c *gin.Context) {
 			Expected: truncateForDisplay(tc.Expected, 500),
 			Actual:   truncateForDisplay(result.Output, 500),
 			Passed:   passed,
-			Status:   result.Status,
+			Status:   displayStatus,
 			TimeUsed: result.TimeUsed,
 			ErrorMsg: result.ErrorMsg,
 		})
 	}
 
-	// 统计通过数
 	passedCount := 0
 	for _, tr := range testResults {
 		if tr.Passed {
@@ -217,7 +211,6 @@ func DebugHandler(c *gin.Context) {
 		}
 	}
 
-	// 发送测试结果给前端（用于展示每个测试点的详细情况）
 	testCtxJSON, _ := json.Marshal(gin.H{
 		"total":        len(testResults),
 		"passed":       passedCount,
@@ -225,7 +218,6 @@ func DebugHandler(c *gin.Context) {
 	})
 	writeSSE("test_results", string(testCtxJSON))
 
-	// 如果全部通过，提前结束（不需要 AI 分析）
 	if passedCount == len(testResults) {
 		writeSSE("status", "所有测试点已通过！无需修复。")
 		writeSSE("done", "")
@@ -237,7 +229,6 @@ func DebugHandler(c *gin.Context) {
 	// ================================================================
 	writeSSE("status", "AI 正在分析错误原因...")
 
-	// 组装 LLM 上下文，包含题目信息、代码、测试结果
 	promptCtx := ai.PromptContext{
 		AgentType:          "debug",
 		ProblemTitle:       problem.Title,
@@ -253,7 +244,6 @@ func DebugHandler(c *gin.Context) {
 		RecentSubmissions:  recentSubsStr,
 	}
 
-	// 填充每个测试点的详细结果
 	for _, tr := range testResults {
 		promptCtx.TestCaseResults = append(promptCtx.TestCaseResults, ai.TestCaseResult{
 			CaseID:   tr.CaseID,
@@ -274,7 +264,6 @@ func DebugHandler(c *gin.Context) {
 			req.Language, passedCount, len(testResults))},
 	}
 
-	// 调用 LLM（带 60 秒超时）
 	llmCtx, llmCancel := context.WithTimeout(ctx, 60*time.Second)
 	defer llmCancel()
 
@@ -292,25 +281,36 @@ func DebugHandler(c *gin.Context) {
 			break
 		}
 		fullResponse.WriteString(chunk.Token)
-		writeSSE("token", chunk.Token)
 	}
 
 	responseText := fullResponse.String()
+
+	// 清理分析文本：去掉 [PROBLEM_QUALITY] 区块，不展示给用户
+	cleanedText := stripProblemQualityBlock(responseText)
+	writeSSE("token", cleanedText)
+
+	// ================================================================
+	// AI 题目质量反馈（从 LLM 回复中解析 [PROBLEM_QUALITY] 区块）
+	// ================================================================
+	if saveProblemFeedback(responseText, req.ProblemID, userID, 0) {
+		// AI 确认了题目数据有问题 → 停止修复流程，直接通知用户和管理员
+		writeSSE("status", "AI 分析发现题目测试数据或描述可能有问题，已自动通知管理员。请等待修正后重新提交。")
+		writeSSE("done", "")
+		return
+	}
 
 	// ================================================================
 	// Step 6: 从 LLM 回复中提取修复后的代码
 	// ================================================================
 	writeSSE("status", "正在提取修复后的代码...")
 
-	// extractCodeBlock 从 markdown 中提取 ```language ... ``` 代码块
 	fixedCode := extractCodeBlock(responseText, req.Language)
 	if fixedCode == "" {
-		writeSSE("status", "AI 未生成修复代码，显示分析结果。")
+		writeSSE("status", "AI 分析完成，但未能提取出修复代码。请查看上方「AI 分析报告」中的错误原因和建议。")
 		writeSSE("done", "")
 		return
 	}
 
-	// 将修复代码推送给前端（用于在编辑器中显示差异）
 	writeSSE("fix", fixedCode)
 
 	// ================================================================
@@ -328,7 +328,6 @@ func DebugHandler(c *gin.Context) {
 		default:
 		}
 
-		// 运行修复后的代码
 		result := judge.Run(req.Language, fixedCode, tc.Input, problem.TimeLimit, problem.MemoryLimit)
 
 		passed := false
@@ -338,19 +337,23 @@ func DebugHandler(c *gin.Context) {
 			}
 		}
 
+		displayStatus := result.Status
+		if !passed && displayStatus == judge.StatusAccepted {
+			displayStatus = judge.StatusWrongAnswer
+		}
+
 		verificationResults = append(verificationResults, debugTestResult{
 			CaseID:   i + 1,
 			Input:    truncateForDisplay(tc.Input, 500),
 			Expected: truncateForDisplay(tc.Expected, 500),
 			Actual:   truncateForDisplay(result.Output, 500),
 			Passed:   passed,
-			Status:   result.Status,
+			Status:   displayStatus,
 			TimeUsed: result.TimeUsed,
 			ErrorMsg: result.ErrorMsg,
 		})
 	}
 
-	// 统计修复结果
 	verifyPassed := 0
 	for _, vr := range verificationResults {
 		if vr.Passed {
@@ -378,24 +381,19 @@ func DebugHandler(c *gin.Context) {
 // 测试数据加载（handler 包本地版本）
 // ============================================================================
 
-// loadTestCasesForDebug 加载测试数据，供 Debug Agent 使用。
-// 优先级：S3/MinIO → 本地文件系统 → MySQL test_cases 表（降级）
 func loadTestCasesForDebug(problemID uint) ([]localTestCase, error) {
 	if storage.Default != nil {
 		if tcs, err := readTestCasesFromStorage(problemID); err == nil && len(tcs) > 0 {
 			return tcs, nil
 		}
 	}
-	// 尝试从本地文件系统读取
 	tcs, err := readTestCasesFromFilesystem(problemID)
 	if err == nil && len(tcs) > 0 {
 		return tcs, nil
 	}
-	// 降级到 MySQL 旧表
 	return readTestCasesFromDB(problemID)
 }
 
-// readTestCasesFromDB 从 MySQL test_cases 表读取测试数据（降级方案）。
 func readTestCasesFromDB(problemID uint) ([]localTestCase, error) {
 	type dbCase struct {
 		Input    string
@@ -418,7 +416,6 @@ func readTestCasesFromDB(problemID uint) ([]localTestCase, error) {
 	return result, nil
 }
 
-// readTestCasesFromStorage 从 S3/MinIO 读取测试数据。
 func readTestCasesFromStorage(problemID uint) ([]localTestCase, error) {
 	files, err := storage.Default.ListTestCases(problemID)
 	if err != nil || len(files) == 0 {
@@ -468,7 +465,6 @@ func readTestCasesFromStorage(problemID uint) ([]localTestCase, error) {
 	return result, nil
 }
 
-// readTestCasesFromFilesystem 从本地文件系统读取测试数据。
 func readTestCasesFromFilesystem(problemID uint) ([]localTestCase, error) {
 	testDataPath := config.Load().TestDataPath
 
@@ -526,7 +522,6 @@ func readTestCasesFromFilesystem(problemID uint) ([]localTestCase, error) {
 // 辅助函数
 // ============================================================================
 
-// formatSampleCases 将题目中的 sample_cases JSON 格式化为可读文本。
 func formatSampleCases(sampleCases json.RawMessage) string {
 	if sampleCases == nil {
 		return "（无）"
@@ -545,22 +540,22 @@ func formatSampleCases(sampleCases json.RawMessage) string {
 	return b.String()
 }
 
-// formatRecentSubmissions 将最近的提交记录格式化为文本（供 LLM 上下文使用）。
 func formatRecentSubmissions(subs []model.Submission) string {
 	if len(subs) == 0 {
 		return "（无最近提交）"
 	}
 	var b strings.Builder
 	for _, s := range subs {
-		b.WriteString(fmt.Sprintf("- 提交 #%d | %s | %s | %d/%d 测试点 | %s\n",
-			s.ID, s.Language, s.Status, s.PassedCount, s.TotalCases, s.CreatedAt.Format("2006-01-02 15:04:05")))
+		failInfo := ""
+		if s.Status != "Accepted" && s.Status != "Partial Score" && s.PassedCount < s.TotalCases {
+			failInfo = fmt.Sprintf(" (止于 case %d)", s.PassedCount+1)
+		}
+		b.WriteString(fmt.Sprintf("- 提交 #%d | %s | %s | %d/%d 测试点%s | %s\n",
+			s.ID, s.Language, s.Status, s.PassedCount, s.TotalCases, failInfo, s.CreatedAt.Format("2006-01-02 15:04:05")))
 	}
 	return b.String()
 }
 
-// extractCodeBlock 从 LLM 的 markdown 回复中提取代码块。
-// 匹配模式：```language ... ``` 或 ``` ... ```
-// 先尝试匹配指定语言（如 ```go），再尝试通用 ```。
 func extractCodeBlock(response string, language string) string {
 	markers := []string{
 		"```" + language,
@@ -590,11 +585,79 @@ func extractCodeBlock(response string, language string) string {
 	return ""
 }
 
-// truncateForDisplay 截断字符串用于显示。
-// 长文本只保留前 maxLen 个字符，后面加上截断提示。
 func truncateForDisplay(s string, maxLen int) string {
 	if len(s) <= maxLen {
 		return s
 	}
 	return s[:maxLen] + "\n...(truncated)"
+}
+
+// stripProblemQualityBlock 从 AI 回复中去掉 [PROBLEM_QUALITY] 区块及其内容，
+// 避免用户看到 k=v 格式的内部标记。
+func stripProblemQualityBlock(text string) string {
+	// [PROBLEM_QUALITY]\nkey=value\n... 直到遇到双换行或结尾
+	re := regexp.MustCompile(`(?s)\n?\[PROBLEM_QUALITY\]\n.*?(?:\n\n|$)`)
+	result := re.ReplaceAllString(text, "")
+	return strings.TrimSpace(result)
+}
+
+// saveProblemFeedback 从 LLM 回复中解析 [PROBLEM_QUALITY] 区块，
+// 如果发现 high confidence 的题目质量问题，自动保存到数据库并返回 true。
+func saveProblemFeedback(response string, problemID uint, userID uint, submissionID int64) bool {
+	re := regexp.MustCompile(`(?s)\[PROBLEM_QUALITY\]\n(.*?)(?:\n\n|$)`)
+	matches := re.FindStringSubmatch(response)
+	if len(matches) < 2 {
+		return false
+	}
+
+	body := strings.TrimSpace(matches[1])
+	if body == "" {
+		return false
+	}
+
+	fields := make(map[string]string)
+	for _, line := range strings.Split(body, "\n") {
+		line = strings.TrimSpace(line)
+		if idx := strings.Index(line, "="); idx > 0 {
+			key := strings.TrimSpace(line[:idx])
+			val := strings.TrimSpace(line[idx+1:])
+			fields[key] = val
+		}
+	}
+
+	if fields["confidence"] != "high" {
+		return false
+	}
+
+	feedbackType := fields["feedback_type"]
+	description := fields["description"]
+	evidence := fields["evidence"]
+
+	if feedbackType == "" || description == "" || evidence == "" {
+		return false
+	}
+
+	feedback := model.ProblemFeedback{
+		ProblemID:    problemID,
+		UserID:       userID,
+		SubmissionID: submissionID,
+		FeedbackType: feedbackType,
+		Priority:     fields["priority"],
+		Description:  description,
+		Evidence:     evidence,
+		Confidence:   "high",
+		Status:       "pending",
+	}
+	if feedback.Priority != "P1" {
+		feedback.Priority = "P2"
+	}
+
+	if err := database.DB.Create(&feedback).Error; err != nil {
+		log.Printf("[debug] failed to save problem feedback: %v", err)
+		return false
+	}
+
+	log.Printf("[debug] problem feedback saved: problem=%d type=%s desc=%s",
+		problemID, feedbackType, description)
+	return true
 }
