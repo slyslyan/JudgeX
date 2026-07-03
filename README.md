@@ -70,10 +70,6 @@ cd /home/sly/Downloads/oj/frontend && npx vite --host
 | `/*` | 404 | 未匹配路由显示友好 404 页面，引导返回首页 |
 | `DELETE /api/admin/problem-feedback/:id` | 删除反馈 | 管理员处理完成后删除已解决的反馈条目 |
 
-## API
-
-完整 API 列表见 CLAUDE.md。
-
 ## 技术栈
 
 | 层 | 技术 |
