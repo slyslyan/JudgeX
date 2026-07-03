@@ -1,67 +1,51 @@
 import { ref, readonly } from 'vue'
 
-export interface DebugTestResult {
-  case_id: number
-  input: string
-  expected: string
-  actual: string
-  passed: boolean
+export interface AiDiagnoseState {
   status: string
-  time_used: number
-  error_msg: string
-}
-
-export interface DebugState {
-  phase: string // 'loading' | 'testing' | 'analyzing' | 'extracting' | 'verifying' | 'done' | 'error'
-  statusMessage: string
-  testResults: DebugTestResult[] | null
-  passedCount: number
-  totalCount: number
   analysis: string
-  fixedCode: string
-  verificationResults: DebugTestResult[] | null
-  verifyPassed: number
-  verifyTotal: number
+  traceOutput: string
   error: string
+  phase: 'idle' | 'running' | 'done' | 'error'
 }
 
-export function useAiDebug() {
-  const state = ref<DebugState>({
-    phase: '',
-    statusMessage: '',
-    testResults: null,
-    passedCount: 0,
-    totalCount: 0,
-    analysis: '',
-    fixedCode: '',
-    verificationResults: null,
-    verifyPassed: 0,
-    verifyTotal: 0,
-    error: '',
-  })
+export interface AiDiagnoseOptions {
+  problemId: number
+  language: string
+  code: string
+  verdict: string
+  compileError?: string
+  timeUsed?: number
+  failedInput?: string
+  failedExpected?: string
+  failedActual?: string
+  failedCaseId?: number
+}
 
+export function useAiDiagnose() {
+  const state = ref<AiDiagnoseState>({
+    status: '',
+    analysis: '',
+    traceOutput: '',
+    error: '',
+    phase: 'idle',
+  })
   const streaming = ref(false)
   const abortController = ref<AbortController | null>(null)
 
   function reset() {
     state.value = {
-      phase: '',
-      statusMessage: '',
-      testResults: null,
-      passedCount: 0,
-      totalCount: 0,
+      status: '',
       analysis: '',
-      fixedCode: '',
-      verificationResults: null,
-      verifyPassed: 0,
-      verifyTotal: 0,
+      traceOutput: '',
       error: '',
+      phase: 'idle',
     }
   }
 
-  async function startDebug(problemId: number, code: string, language: string): Promise<void> {
+  async function start(options: AiDiagnoseOptions): Promise<void> {
     reset()
     streaming.value = true
+    state.value.phase = 'running'
 
     const controller = new AbortController()
     abortController.value = controller
@@ -75,13 +59,20 @@ export function useAiDebug() {
         headers['Authorization'] = `Bearer ${token}`
       }
 
-      const response = await fetch('/api/ai/debug', {
+      const response = await fetch('/api/ai/diagnose', {
         method: 'POST',
         headers,
         body: JSON.stringify({
-          problem_id: problemId,
-          language,
-          code,
+          problem_id: options.problemId,
+          language: options.language,
+          code: options.code,
+          verdict: options.verdict,
+          compile_error: options.compileError || '',
+          time_used: options.timeUsed || 0,
+          failed_input: options.failedInput || '',
+          failed_expected: options.failedExpected || '',
+          failed_actual: options.failedActual || '',
+          failed_case_id: options.failedCaseId || 0,
         }),
         signal: controller.signal,
       })
@@ -131,10 +122,13 @@ export function useAiDebug() {
     } catch (e: any) {
       if (e.name === 'AbortError') {
         state.value.phase = 'done'
-        state.value.statusMessage = '已取消'
+        state.value.status = '已取消'
+      } else if (e.message?.includes('503')) {
+        state.value.phase = 'error'
+        state.value.error = '诊断队列已满，请稍后再试'
       } else {
         state.value.phase = 'error'
-        state.value.error = e.message || 'Debug agent error'
+        state.value.error = e.message || 'AI 诊断助手错误'
       }
     } finally {
       streaming.value = false
@@ -151,48 +145,18 @@ export function useAiDebug() {
   function handleEvent(eventType: string, data: string) {
     switch (eventType) {
       case 'status':
-        state.value.statusMessage = data
-        if (data.includes('加载题目')) state.value.phase = 'loading'
-        else if (data.includes('加载测试') || data.includes('加载提交')) state.value.phase = 'loading'
-        else if (data.includes('评测用户代码')) {
-          state.value.phase = 'testing'
-          const m = data.match(/(\d+)/)
-          if (m) state.value.totalCount = parseInt(m[1])
-        } else if (data.includes('AI 正在分析') || data.includes('分析错误')) state.value.phase = 'analyzing'
-        else if (data.includes('提取修复') || data.includes('未生成')) state.value.phase = 'extracting'
-        else if (data.includes('验证修复')) state.value.phase = 'verifying'
-        else if (data.includes('通过') || data.includes('修复成功') || data.includes('失败')) state.value.phase = 'done'
+        state.value.status = data
         break
-
-      case 'test_results':
-        try {
-          const tr = JSON.parse(data)
-          state.value.testResults = tr.test_results
-          state.value.passedCount = tr.passed || 0
-          state.value.totalCount = tr.total || 0
-          state.value.phase = 'testing'
-        } catch { /* ignore */ }
-        break
-
       case 'token':
         state.value.analysis += data
         break
-
-      case 'fix':
-        state.value.fixedCode = data
-        state.value.phase = 'extracting'
-        break
-
-      case 'verification':
+      case 'trace':
         try {
-          const vr = JSON.parse(data)
-          state.value.verificationResults = vr.test_results
-          state.value.verifyPassed = vr.passed || 0
-          state.value.verifyTotal = vr.total || 0
-          state.value.phase = 'done'
-        } catch { /* ignore */ }
+          state.value.traceOutput = JSON.parse(data)
+        } catch {
+          state.value.traceOutput = data
+        }
         break
-
       case 'error':
         try {
           const err = JSON.parse(data)
@@ -202,7 +166,6 @@ export function useAiDebug() {
         }
         state.value.phase = 'error'
         break
-
       case 'done':
         if (state.value.phase !== 'error') {
           state.value.phase = 'done'
@@ -214,7 +177,7 @@ export function useAiDebug() {
   return {
     state: readonly(state),
     streaming: readonly(streaming),
-    startDebug,
+    start,
     abort,
     reset,
   }

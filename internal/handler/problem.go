@@ -143,18 +143,34 @@ func (h *ProblemHandler) List(c *gin.Context) {
 	q.Count(&total)
 	q.Order("number ASC").Offset(offset).Limit(pageSize).Find(&problems)
 
-	// 为每个题目统计提交数
+	// 一次查询所有题目的提交数
 	type ProblemWithStats struct {
 		model.Problem
 		SubmissionCount int64 `json:"submission_count"`
 	}
+	problemIDs := make([]uint, len(problems))
+	for i, p := range problems {
+		problemIDs[i] = p.ID
+	}
+	type countResult struct {
+		ProblemID uint
+		Count     int64
+	}
+	var counts []countResult
+	database.DB.Model(&model.Submission{}).
+		Select("problem_id, COUNT(*) AS count").
+		Where("problem_id IN ?", problemIDs).
+		Group("problem_id").
+		Scan(&counts)
+	countMap := make(map[uint]int64, len(counts))
+	for _, c := range counts {
+		countMap[c.ProblemID] = c.Count
+	}
 	result := make([]ProblemWithStats, 0, len(problems))
 	for _, p := range problems {
-		var count int64
-		database.DB.Model(&model.Submission{}).Where("problem_id = ?", p.ID).Count(&count)
 		result = append(result, ProblemWithStats{
 			Problem:         p,
-			SubmissionCount: count,
+			SubmissionCount: countMap[p.ID],
 		})
 	}
 

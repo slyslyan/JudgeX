@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
+
 const router = useRouter()
 const route = useRoute()
 
@@ -30,36 +31,72 @@ function logout() {
   router.push('/login')
 }
 
-
 const navLinks = [
   { path: '/problems', label: '题库' },
   { path: '/contests', label: '比赛' },
   { path: '/submissions', label: '提交' },
   { path: '/leaderboard', label: '排行' },
 ]
+
+/* ── Cursor follower ── */
+const cursorStyle = ref({ left: 0, width: 0, opacity: 0 })
+const tabRefs = ref<(HTMLLIElement | null)[]>([])
+
+function setTabRef(el: any, index: number) {
+  tabRefs.value[index] = el
+}
+
+function handleMouseEnter(index: number) {
+  const el = tabRefs.value[index]
+  if (!el) return
+  cursorStyle.value = {
+    left: el.offsetLeft,
+    width: el.offsetWidth,
+    opacity: 1,
+  }
+}
+
+function handleMouseLeave() {
+  cursorStyle.value = { ...cursorStyle.value, opacity: 0 }
+}
 </script>
 
 <template>
-  <header class="sticky top-0 z-50 h-12 border-b border-black/5 bg-white/72 backdrop-blur-2xl dark:bg-[#161616]/78 dark:border-white/10" v-icon-color>
+  <header class="sticky top-0 z-50 h-14 border-b border-black/5 bg-white/72 backdrop-blur-2xl dark:bg-[#161616]/78 dark:border-white/10" v-icon-color>
     <div class="mx-auto flex h-full max-w-6xl items-center justify-between px-6">
-      <!-- Left -->
-      <div class="flex items-center gap-6">
-        <span class="cursor-pointer text-base font-semibold tracking-tight text-zinc-900 dark:text-white" @click="router.push('/')">
-          JudgeX
-        </span>
-        <nav class="hidden items-center gap-1 sm:flex">
-          <router-link
-            v-if="isLoggedIn"
-            v-for="link in navLinks"
-            :key="link.path"
-            :to="link.path"
-            class="rounded-full px-3.5 py-1.5 text-[13px] font-medium text-zinc-500 transition-colors hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-white"
-            active-class="!text-zinc-900 dark:!text-white"
-          >
-            {{ link.label }}
-          </router-link>
-        </nav>
-      </div>
+      <!-- Brand -->
+      <span
+        class="cursor-pointer text-base font-semibold tracking-tight text-zinc-900 dark:text-white"
+        @click="router.push('/')"
+      >
+        JudgeX
+      </span>
+
+      <!-- Center: Animated Pill Nav -->
+      <ul
+        class="relative mx-auto hidden w-fit items-center rounded-full border-2 border-black bg-white p-1 sm:flex"
+        @mouseleave="handleMouseLeave"
+      >
+        <li
+          v-for="(link, i) in navLinks"
+          :key="link.path"
+          :ref="(el) => setTabRef(el, i)"
+          @mouseenter="handleMouseEnter(i)"
+          @click="router.push(link.path)"
+          class="relative z-10 block cursor-pointer select-none px-3 py-1.5 text-xs font-medium uppercase tracking-wide text-white mix-blend-difference transition-colors md:px-5 md:py-3 md:text-sm"
+        >
+          {{ link.label }}
+        </li>
+        <!-- Cursor pill -->
+        <li
+          :style="{
+            left: cursorStyle.left + 'px',
+            width: cursorStyle.width + 'px',
+            opacity: cursorStyle.opacity,
+          }"
+          class="absolute top-0 z-0 h-full rounded-full bg-black pointer-events-none"
+        />
+      </ul>
 
       <!-- Right -->
       <div class="flex items-center gap-2">
@@ -133,7 +170,7 @@ const navLinks = [
 
   <!-- Mobile nav drawer -->
   <Transition name="mobile-nav">
-    <div v-if="showMobileMenu && isLoggedIn" class="fixed inset-x-0 top-12 z-40 border-b border-zinc-200/60 bg-white/95 backdrop-blur-2xl shadow-lg sm:hidden dark:bg-[#161616]/95 dark:border-zinc-800">
+    <div v-if="showMobileMenu && isLoggedIn" class="fixed inset-x-0 top-14 z-40 border-b border-zinc-200/60 bg-white/95 backdrop-blur-2xl shadow-lg sm:hidden dark:bg-[#161616]/95 dark:border-zinc-800">
       <nav class="flex flex-col px-4 py-3">
         <router-link
           v-for="link in navLinks"
@@ -158,6 +195,13 @@ const navLinks = [
 </template>
 
 <style scoped>
+/* Cursor pill animation — spring-like feel */
+.absolute.z-0 {
+  transition: left 0.35s cubic-bezier(0.34, 1.56, 0.64, 1),
+              width 0.35s cubic-bezier(0.34, 1.56, 0.64, 1),
+              opacity 0.25s ease;
+}
+
 .mobile-nav-enter-active,
 .mobile-nav-leave-active {
   transition: opacity 0.15s ease, transform 0.15s ease;

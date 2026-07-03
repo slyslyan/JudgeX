@@ -88,15 +88,18 @@ func (h *ProfileHandler) GetByID(c *gin.Context) {
 // buildProfile 构建用户资料响应（包含统计信息）。
 // 被 Get 和 GetByID 复用。
 func buildProfile(user model.User) ProfileResponse {
-	var totalSubs, acceptedSubs int64
-	database.DB.Model(&model.Submission{}).Where("user_id = ?", user.ID).Count(&totalSubs)
-	database.DB.Model(&model.Submission{}).Where("user_id = ? AND status = ?", user.ID, "Accepted").Count(&acceptedSubs)
-
-	// 解题数：DISTINCT problem_id，确保每道题只计数一次
-	var solvedProblems int64
-	database.DB.Model(&model.Submission{}).
-		Where("user_id = ? AND status = ?", user.ID, "Accepted").
-		Distinct("problem_id").Count(&solvedProblems)
+	// 一次查询统计：总提交数、AC数、解题数
+	var stats struct {
+		Total    int64
+		Accepted int64
+		Solved   int64
+	}
+	database.DB.Raw(`
+		SELECT
+			COUNT(*) AS total,
+			SUM(CASE WHEN status = 'Accepted' THEN 1 ELSE 0 END) AS accepted,
+			COUNT(DISTINCT CASE WHEN status = 'Accepted' THEN problem_id END) AS solved
+		FROM submissions WHERE user_id = ?`, user.ID).Scan(&stats)
 
 	// 最近 10 条提交
 	var recent []model.Submission
@@ -104,9 +107,9 @@ func buildProfile(user model.User) ProfileResponse {
 
 	return ProfileResponse{
 		User:                user,
-		TotalSubmissions:    totalSubs,
-		AcceptedSubmissions: acceptedSubs,
-		SolvedProblems:      solvedProblems,
+		TotalSubmissions:    stats.Total,
+		AcceptedSubmissions: stats.Accepted,
+		SolvedProblems:      stats.Solved,
 		RecentSubmissions:   recent,
 	}
 }

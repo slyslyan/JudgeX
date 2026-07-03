@@ -1,6 +1,6 @@
 # JudgeX — 现代在线评测系统
 
-JudgeX 是一套面向编程教育的现代在线评测系统（Online Judge）。Apple 极简风格中文界面，Monaco 代码编辑器，支持 C++/Python/Java/Go/Rust 多语言自动判题，ACM 和 IOI 双赛制，Playground 多文件编程工作区，以及 7-Agent AI 矩阵（含全自动代码 Debug 和 SRE 运维助手）。后端 Go + 前端 Vue 3，沙箱基于 cgroup v2 / chroot / seccomp-BPF（K8s 下 gVisor），K3s/K8s 分布式部署。
+JudgeX 是一套面向编程教育的现代在线评测系统（Online Judge）。Apple 极简风格中文界面，Monaco 代码编辑器，支持 C++/Python/Java/Go/Rust 多语言自动判题，ACM 和 IOI 双赛制，Playground 多文件编程工作区，以及 AI 诊断助手（代码错误分析 + 题目质量检测）。后端 Go + 前端 Vue 3，沙箱基于 cgroup v2 / chroot / seccomp-BPF（K8s 下 gVisor），K3s/K8s 分布式部署。
 
 ## 快速启动
 
@@ -28,17 +28,14 @@ cd /home/sly/Downloads/oj/frontend && npx vite --host
 - 移动端适配：汉堡菜单导航抽屉、响应式网格布局、Touch 友好交互
 - 404 页面：未匹配路由显示友好引导页，一键返回首页
 
-### AI 助手（7 Agent）
+### AI 助手
 
 | Agent | 触发方式 | 功能 |
 |-------|----------|------|
-| **错误诊断** | 提交详情页「AI 诊断」按钮 | WA/TLE/RE/CE 精准分析 |
+| **AI 诊断助手** | 提交详情页「AI 诊断」按钮 | WA/TLE/RE/CE 精准分析；诊断同时自动检测题目质量问题（样例错误、测试数据异常），写入 ProblemFeedback 表供管理员审核 |
 | **苏格拉底导师** | 题目详情页「需要提示？」按钮 | 引导式提问，不给答案 |
-| **测试数据生成** | 管理后台测试用例页 | AI 生成 Python 测试脚本 |
 | **虚拟教练** | 浮动 AI 聊天（全页面） | 上下文感知对话 + 建议 Chip |
-| **SRE 诊断** | 管理后台系统监控 | 系统快照采集 + AI 健康分析 |
-| **AI Debug Agent** | 提交详情页 / 全屏编辑器 | 全自动 Debug 闭环：加载题面 → 运行 10 组测试 → LLM 分析 → 提取修复代码 → 验证通过。LLM prompt 中质量检查优先级高于代码修复——先检查测试数据是否与题目描述一致、样例是否正确、描述有无歧义；若 AI 高置信度检测到问题，立即停止修复流程并写入 feedback 表供 `/admin/problem-feedback` 审核，不提用户代码 |
-| **SRE 运维助手** | 管理后台系统监控 | ReAct 风格 4 工具：系统快照、告警规则、节点重启、24h 分析报告 |
+| **SRE 诊断** | 管理后台系统监控 | 系统快照采集 + AI 健康分析（含 AlertManager Webhook 自动诊断） |
 
 ### 安全
 - cgroup v2 + chroot + seccomp BPF 三层沙箱隔离（K8s 下 gVisor 用户态内核）
@@ -94,7 +91,7 @@ cd /home/sly/Downloads/oj/frontend && npx vite --host
 | 沙箱 | cgroup v2 + chroot + seccomp BPF / gVisor (runsc) |
 | 存储 | 本地磁盘 / MinIO / S3 |
 | 可观测 | Prometheus + Grafana + OpenTelemetry + Jaeger + Loki |
-| AI | 兼容 OpenAI 协议（DeepSeek、通义千问等），7 Agent，断路器，注入防护 |
+| AI | 兼容 OpenAI 协议（DeepSeek、通义千问等），诊断 + 教学 + SRE 多 Agent，断路器，注入防护 |
 | 部署 | Docker Compose / Helm / K3s / K8s（KEDA 自动扩缩容） |
 | CI/CD | GitHub Actions（lint + test + build + docker push） |
 
@@ -107,6 +104,6 @@ Apple 极简风格：浅色 `#f5f5f7` / 深色 `#161616` 分层炭灰，品牌�
 | 文档 | 说明 |
 |------|------|
 | [项目简介](PROJECT_INTRO.md) | 技术栈 + 核心功能 + 项目结构一览 |
-| [面试学习指南](STUDY_GUIDE.md) | 代码级逐文件解读、算法详解、面试问答 |
 | [部署指南](DEPLOY.md) | Docker Compose / 裸机 / K8s 部署步骤 |
 | [SRE 路线图](SRE_ROADMAP.md) | 生产就绪 → 扩缩容 → 高级架构 |
+| [服务器信息](SERVER.md) | 生产服务器部署状态（K3s + HTTPS） |

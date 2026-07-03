@@ -63,7 +63,7 @@ onMounted(async () => {
 </script>
 
 <template>
-  <div class="mx-auto max-w-4xl px-6 py-8">
+  <div class="mx-auto max-w-4xl px-6 py-8" v-icon-color>
     <div class="mb-6 flex items-center justify-between">
       <h2 class="text-xl font-bold text-zinc-900 dark:text-zinc-100">Contests</h2>
       <router-link

@@ -152,95 +152,11 @@ function formatSize(bytes: number): string {
   return `${(bytes / 1048576).toFixed(1)} MB`
 }
 
-const showAiGen = ref(false)
-const genDesc = ref('')
-const genInputFmt = ref('')
-const genOutputFmt = ref('')
-const genConstraints = ref('')
-const genHint = ref('')
-const genNumCases = ref(10)
-const genResult = ref('')
-const generating = ref(false)
-const genError = ref('')
-const genAbort = ref<AbortController | null>(null)
-
-function copyGeneratedScript() {
-  navigator.clipboard.writeText(genResult.value.replace(/```[^`]*```/g, ''))
-}
-
-async function generateTestScript() {
-  if (!genDesc.value.trim()) return
-  generating.value = true
-  genResult.value = ''
-  genError.value = ''
-
-  const controller = new AbortController()
-  genAbort.value = controller
-
-  try {
-    const token = localStorage.getItem('token')
-    const response = await fetch('/api/ai/generate-test-script', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      },
-      body: JSON.stringify({
-        problem_desc: genDesc.value,
-        input_format: genInputFmt.value,
-        output_format: genOutputFmt.value,
-        constraints: genConstraints.value,
-        solution_hint: genHint.value,
-        num_cases: genNumCases.value,
-      }),
-      signal: controller.signal,
-    })
-
-    if (!response.ok) {
-      const t = await response.text()
-      try { throw new Error(JSON.parse(t).error) } catch (e: any) { throw new Error(e.message || `HTTP ${response.status}`) }
-    }
-
-    const reader = response.body!.getReader()
-    const decoder = new TextDecoder()
-    let buffer = ''
-
-    while (true) {
-      const { done, value } = await reader.read()
-      if (done) break
-      buffer += decoder.decode(value, { stream: true })
-      const parts = buffer.split('\n\n')
-      buffer = parts.pop() || ''
-      for (const part of parts) {
-        const lines = part.split('\n')
-        let eventType = '', eventData = ''
-        for (const line of lines) {
-          if (line.startsWith('event:')) eventType = line.slice(6).trim()
-          else if (line.startsWith('data:')) eventData = line.slice(5).trim()
-        }
-        if (eventType === 'error') throw new Error(eventData)
-        if (eventType === 'token' && eventData) {
-          genResult.value += eventData
-        }
-      }
-    }
-  } catch (e: any) {
-    if (e.name !== 'AbortError') genError.value = e.message
-  } finally {
-    generating.value = false
-    genAbort.value = null
-  }
-}
-
-function cancelGeneration() {
-  if (genAbort.value) genAbort.value.abort()
-}
-
 onMounted(load)
 </script>
 
 <template>
-  <div class="mx-auto max-w-4xl px-6 py-8">
+  <div class="mx-auto max-w-4xl px-6 py-8" v-icon-color>
     <div class="mb-4">
       <router-link to="/admin/dashboard" class="inline-flex items-center gap-1 text-sm text-zinc-400 hover:text-zinc-600 transition-colors dark:hover:text-zinc-300">
         <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18"/></svg>
@@ -287,103 +203,6 @@ onMounted(load)
       </div>
     </div>
 
-    <!-- AI Test Data Generator -->
-    <div class="card-premium mb-5 p-5" style="border-left: 3px solid #3b82f6;">
-      <div class="flex items-center justify-between mb-3">
-        <h3 class="text-sm font-bold text-brand-700 dark:text-brand-400">AI Test Data Generator</h3>
-        <button
-          class="rounded-xl border border-brand-200 bg-brand-50 px-3 py-1.5 text-xs font-semibold text-brand-600 transition-all duration-200 hover:bg-brand-100 dark:bg-brand-900/20 dark:border-brand-800 dark:text-brand-400"
-          @click="showAiGen = !showAiGen"
-        >
-          {{ showAiGen ? 'Collapse' : 'Expand' }}
-        </button>
-      </div>
-      <p class="mb-3 text-xs text-zinc-400">
-        Describe the problem — AI will generate a Python script that creates edge-case test data (.in/.out files).
-      </p>
-
-      <div v-if="showAiGen" class="space-y-3">
-        <div>
-          <label class="mb-1.5 block text-xs font-semibold text-zinc-400 uppercase tracking-wider">Problem Description *</label>
-          <textarea v-model="genDesc" rows="4" :disabled="generating"
-            class="input-glow w-full rounded-xl border border-zinc-200 bg-white px-4 py-3 text-sm resize-none disabled:bg-zinc-100 dark:bg-zinc-900 dark:border-zinc-700 dark:text-zinc-200 dark:disabled:bg-zinc-800"
-            placeholder="Describe the problem in detail..."
-          ></textarea>
-        </div>
-        <div class="grid grid-cols-2 gap-3">
-          <div>
-            <label class="mb-1.5 block text-xs font-semibold text-zinc-400 uppercase tracking-wider">Input Format</label>
-            <textarea v-model="genInputFmt" rows="2" :disabled="generating"
-              class="input-glow w-full rounded-xl border border-zinc-200 bg-white px-4 py-2.5 text-sm font-mono resize-none disabled:bg-zinc-100 dark:bg-zinc-900 dark:border-zinc-700 dark:text-zinc-200 dark:disabled:bg-zinc-800"
-              placeholder="e.g. First line: N, next N lines: a_i"
-            ></textarea>
-          </div>
-          <div>
-            <label class="mb-1.5 block text-xs font-semibold text-zinc-400 uppercase tracking-wider">Output Format</label>
-            <textarea v-model="genOutputFmt" rows="2" :disabled="generating"
-              class="input-glow w-full rounded-xl border border-zinc-200 bg-white px-4 py-2.5 text-sm font-mono resize-none disabled:bg-zinc-100 dark:bg-zinc-900 dark:border-zinc-700 dark:text-zinc-200 dark:disabled:bg-zinc-800"
-              placeholder="e.g. Single integer: max subarray sum"
-            ></textarea>
-          </div>
-        </div>
-        <div class="grid grid-cols-2 gap-3">
-          <div>
-            <label class="mb-1.5 block text-xs font-semibold text-zinc-400 uppercase tracking-wider">Constraints</label>
-            <input v-model="genConstraints" :disabled="generating"
-              class="input-glow w-full rounded-xl border border-zinc-200 bg-white px-4 py-2.5 text-sm disabled:bg-zinc-100 dark:bg-zinc-900 dark:border-zinc-700 dark:text-zinc-200 dark:disabled:bg-zinc-800"
-              placeholder="e.g. 1 ≤ N ≤ 10^5"
-            />
-          </div>
-          <div>
-            <label class="mb-1.5 block text-xs font-semibold text-zinc-400 uppercase tracking-wider">Number of Cases</label>
-            <input v-model.number="genNumCases" type="number" min="1" max="50" :disabled="generating"
-              class="input-glow w-full rounded-xl border border-zinc-200 bg-white px-4 py-2.5 text-sm disabled:bg-zinc-100 dark:bg-zinc-900 dark:border-zinc-700 dark:text-zinc-200 dark:disabled:bg-zinc-800"
-            />
-          </div>
-        </div>
-        <div>
-          <label class="mb-1.5 block text-xs font-semibold text-zinc-400 uppercase tracking-wider">Solution Approach (hint / key algorithm)</label>
-          <input v-model="genHint" :disabled="generating"
-            class="input-glow w-full rounded-xl border border-zinc-200 bg-white px-4 py-2.5 text-sm disabled:bg-zinc-100 dark:bg-zinc-900 dark:border-zinc-700 dark:text-zinc-200 dark:disabled:bg-zinc-800"
-            placeholder="e.g. Kadane's algorithm for maximum subarray"
-          />
-        </div>
-
-        <div class="flex items-center gap-3">
-          <button
-            v-if="!generating"
-            :disabled="!genDesc.trim()"
-            class="btn-gradient"
-            @click="generateTestScript"
-          >
-            Generate Script
-          </button>
-          <button
-            v-else
-            class="rounded-xl bg-red-500 px-4 py-2 text-sm font-semibold text-white shadow-sm shadow-red-500/25 transition-all duration-200 hover:bg-red-600"
-            @click="cancelGeneration"
-          >
-            Cancel
-          </button>
-          <span v-if="genError" class="text-xs text-red-500">{{ genError }}</span>
-        </div>
-
-        <div v-if="genResult" class="rounded-xl border border-zinc-200 bg-zinc-900 p-5 shadow-lg shadow-zinc-900/10 dark:border-zinc-700 dark:shadow-zinc-950/50">
-          <div class="flex items-center justify-between mb-3">
-            <span class="text-xs font-medium text-zinc-400">Generated Python Script</span>
-            <button
-              class="rounded-lg bg-zinc-700 px-3 py-1 text-xs font-medium text-zinc-300 shadow-sm transition-colors hover:bg-zinc-600"
-              @click="copyGeneratedScript"
-            >
-              Copy
-            </button>
-          </div>
-          <pre class="overflow-auto text-sm text-zinc-100 whitespace-pre-wrap">{{ genResult }}</pre>
-          <span v-if="generating" class="ml-0.5 inline-block h-4 w-0.5 animate-pulse bg-brand-400 align-text-bottom">&nbsp;</span>
-        </div>
-      </div>
-    </div>
-
     <!-- Add Single Test Case -->
     <div class="card-premium mb-5 p-5">
       <div class="flex items-center justify-between mb-3">
@@ -396,7 +215,8 @@ onMounted(load)
         </button>
       </div>
 
-      <div v-if="showAddForm" class="space-y-3">
+      <Transition name="slide-down">
+        <div v-if="showAddForm" class="space-y-3">
         <div class="grid grid-cols-2 gap-3">
           <div>
             <label class="mb-1.5 block text-xs font-semibold text-zinc-400 uppercase tracking-wider">Input</label>
@@ -425,6 +245,7 @@ onMounted(load)
           {{ savingNew ? 'Adding...' : 'Add Test Case' }}
         </button>
       </div>
+      </Transition>
     </div>
 
     <!-- Hidden 测试用例 on Disk -->

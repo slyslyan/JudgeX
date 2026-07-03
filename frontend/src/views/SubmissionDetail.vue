@@ -3,8 +3,7 @@ import { ref, computed, onMounted, onBeforeUnmount, nextTick, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { getSubmission, rejudgeSubmission, type Submission } from '../api'
 import hljs from 'highlight.js'
-import AiChat from '../components/AiChat.vue'
-import DebugAgent from '../components/DebugAgent.vue'
+import AiDiagnoseAssistant from '../components/AiDiagnoseAssistant.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -12,10 +11,7 @@ const submission = ref<Submission | null>(null)
 const rejudging = ref(false)
 const codeBlock = ref<HTMLElement | null>(null)
 
-const showAiChat = ref(false)
-const aiReveal = ref<{ agentType?: string; message?: string } | null>(null)
-
-const showAiDebug = ref(false)
+const showAiDiagnose = ref(false)
 
 const errorStatuses = ['Wrong Answer', 'Time Limit Exceeded', 'Memory Limit Exceeded', 'Runtime Error', 'Compile Error']
 function isErrorStatus(s: string) { return errorStatuses.includes(s) }
@@ -26,13 +22,6 @@ const isAdmin = computed(() => {
   const role = JSON.parse(u).role
   return role === 'admin' || role === 'super_admin'
 })
-
-function openAiDiagnose() {
-  showAiChat.value = true
-  nextTick().then(() => {
-    aiReveal.value = { agentType: 'diagnose', message: `为什么得到 ${submission.value?.status}?` }
-  })
-}
 
 async function doRejudge() {
   if (!submission.value) return
@@ -128,7 +117,7 @@ watch(submission, async () => {
 </script>
 
 <template>
-  <div v-if="submission" class="mx-auto max-w-6xl px-6 py-8">
+  <div v-if="submission" class="mx-auto max-w-6xl px-6 py-8" v-icon-color>
     <div class="mb-4 flex items-center gap-3">
       <button
         class="inline-flex items-center gap-1.5 rounded-xl px-3 py-2 text-sm font-medium text-zinc-500 transition-all duration-200 hover:bg-zinc-100 hover:text-zinc-700 dark:hover:bg-zinc-800 dark:hover:text-zinc-300"
@@ -147,18 +136,12 @@ watch(submission, async () => {
       </button>
 
       <button
-        v-if="isErrorStatus(submission.status) && !showAiChat"
-        class="inline-flex items-center gap-1.5 rounded-xl border border-brand-200 bg-gradient-to-br from-brand-50 to-brand-100 px-3.5 py-2 text-sm font-medium text-brand-700 shadow-sm transition-all duration-200 hover:shadow-md dark:from-brand-900/20 dark:to-brand-900/30 dark:border-brand-700 dark:text-brand-400"
-        @click="openAiDiagnose"
+        v-if="isErrorStatus(submission.status)"
+        class="inline-flex items-center gap-1.5 rounded-xl border border-amber-200 bg-gradient-to-br from-amber-50 to-orange-50 px-3.5 py-2 text-sm font-medium text-amber-700 shadow-sm transition-all duration-200 hover:shadow-md dark:from-amber-900/20 dark:to-amber-900/30 dark:border-amber-700 dark:text-amber-400"
+        @click="showAiDiagnose = !showAiDiagnose"
       >
+        <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4.26 10.147a60.438 60.438 0 0 0-.491 6.347A48.62 48.62 0 0 1 12 20.904a48.62 48.62 0 0 1 8.232-4.41 60.46 60.46 0 0 0-.491-6.347m-15.482 0a50.636 50.636 0 0 0-2.658-.813A59.906 59.906 0 0 1 12 3.493a59.903 59.903 0 0 1 10.399 5.84c-.896.248-1.783.52-2.658.814m-15.482 0A50.717 50.717 0 0 1 12 13.489a50.702 50.702 0 0 1 7.74-3.342" /></svg>
         AI 诊断
-      </button>
-      <button
-        class="inline-flex items-center gap-1.5 rounded-xl border border-brand-200 bg-gradient-to-br from-brand-50 to-brand-100 px-3.5 py-2 text-sm font-medium text-brand-700 shadow-sm transition-all duration-200 hover:shadow-md dark:from-brand-900/20 dark:to-brand-900/30 dark:border-brand-800 dark:text-brand-400"
-        @click="showAiDebug = !showAiDebug"
-      >
-        <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a4.5 4.5 0 00-3.09-3.09L13.5 5.25l1.035-.259a4.5 4.5 0 003.09-3.09L18 .75l.259 1.035a4.5 4.5 0 003.09 3.09L22.5 5.25l-1.035.259a4.5 4.5 0 00-3.09 3.09z"/></svg>
-        AI Debug
       </button>
     </div>
 
@@ -205,9 +188,9 @@ watch(submission, async () => {
       </div>
     </div>
 
-    <!-- Code + AI 诊断 split -->
+    <!-- Code + AI 诊断助手 split -->
     <div class="flex gap-4 min-h-0">
-      <div :class="showAiChat ? 'flex-1 min-w-0' : 'flex-1'">
+      <div class="flex-1">
         <div class="overflow-hidden rounded-2xl border border-zinc-200 bg-zinc-900 shadow-lg shadow-zinc-900/10 dark:border-zinc-700 dark:shadow-zinc-950/50">
           <div class="flex items-center gap-2 border-b border-zinc-700/50 px-5 py-2.5">
             <span class="h-3 w-3 rounded-full bg-red-400/80 shadow-sm shadow-red-400/50" />
@@ -216,38 +199,24 @@ watch(submission, async () => {
             <span class="ml-3 text-xs text-zinc-500">solution.{{ submission.language }}</span>
           </div>
           <div class="p-5">
-            <pre class="overflow-auto text-sm leading-relaxed"><code ref="codeBlock" :class="submission.language === 'python' ? 'language-python' : submission.language === 'java' ? 'language-java' : submission.language === 'go' ? 'language-go' : submission.language === 'rust' ? 'language-rust' : 'language-cpp'">{{ submission.code }}</code></pre>
+            <pre class="overflow-auto text-sm leading-relaxed"><code ref="codeBlock" :class="submission.language === 'python' ? 'language-python' : submission.language === 'java' ? 'language-java' : submission.language === 'rust' ? 'language-rust' : 'language-cpp'">{{ submission.code }}</code></pre>
           </div>
         </div>
       </div>
 
-      <div v-if="showAiDebug" class="w-96 shrink-0">
-        <DebugAgent
-          :problem-id="submission.problem_id"
-          :code="submission.code"
-          :language="submission.language"
-          @close="showAiDebug = false"
-        />
-      </div>
-
-      <div v-if="showAiChat" class="w-96 shrink-0">
-        <AiChat
-          variant="inline"
-          :options="{
-            agentType: 'diagnose',
-            problemId: submission.problem_id,
-            submissionId: submission.id,
-          }"
-          :reveal="aiReveal"
-          :suggestions="[
-            '为什么得到 ' + submission.status + '?',
-            '我遗漏了哪些边界条件？',
-            '我的方法是否有逻辑错误？',
-            '如何优化时间复杂度？'
-          ]"
-          @close="showAiChat = false"
-        />
-      </div>
+      <Transition name="slide-up">
+        <div v-if="showAiDiagnose" key="ai-diagnose" class="w-96 shrink-0">
+          <AiDiagnoseAssistant
+            :problem-id="submission.problem_id"
+            :code="submission.code"
+            :language="submission.language"
+            :verdict="submission.status === 'Compile Error' ? 'CE' : submission.status === 'Time Limit Exceeded' ? 'TLE' : submission.status === 'Wrong Answer' ? 'WA' : 'RE'"
+            :compile-error="submission.error_message"
+            :time-used="submission.time_used"
+            @close="showAiDiagnose = false"
+          />
+        </div>
+      </Transition>
     </div>
   </div>
 

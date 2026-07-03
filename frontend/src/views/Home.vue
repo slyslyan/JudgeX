@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { getProblems, getContests, getLeaderboard, getAnnouncements, type Announcement } from '../api'
+import GlowButton from '../components/GlowButton.vue'
 
 interface RankEntry {
   user_id: number
@@ -66,7 +67,7 @@ onMounted(async () => {
 </script>
 
 <template>
-  <div class="min-h-[calc(100vh-3rem)]">
+  <div class="min-h-[calc(100vh-3rem)]" v-icon-color>
     <!-- ==================== Hero ==================== -->
     <section class="relative overflow-hidden px-6 pt-24 pb-20 sm:pt-32 sm:pb-24">
       <div class="relative mx-auto max-w-3xl text-center">
@@ -74,21 +75,21 @@ onMounted(async () => {
           Judge<span class="text-zinc-400">X</span>
         </h1>
         <div class="mt-8 flex items-center justify-center gap-3">
-          <router-link
+          <GlowButton
             :to="isLoggedIn ? '/problems' : '/login'"
-            class="apple-btn-primary inline-flex items-center gap-2 px-6 py-2.5 text-[15px]"
+            class="gap-2 px-6 py-2.5 text-[15px] font-medium"
           >
             {{ isLoggedIn ? '开始刷题' : '免费注册' }}
             <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6"/>
             </svg>
-          </router-link>
-          <router-link
+          </GlowButton>
+          <GlowButton
             to="/contests"
-            class="apple-btn-secondary px-6 py-2.5 text-[15px]"
+            class="gap-2 px-6 py-2.5 text-[15px] font-medium"
           >
             进入比赛
-          </router-link>
+          </GlowButton>
         </div>
       </div>
     </section>

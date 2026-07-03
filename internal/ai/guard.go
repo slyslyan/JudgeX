@@ -35,7 +35,7 @@ var injectionPatterns = []*regexp.Regexp{
 	// ======== 系统指令覆盖攻击 ========
 	// 试图让 AI 忽略预设的"辅导角色"限制
 	regexp.MustCompile(`(?i)(ignore|forget|disregard)\s+(all\s+)?(previous|above|prior|your)\s+(instructions?|rules?|prompts?|guidelines?)`),
-	// 试图让 AI 扮演不同的角色（绕过 Socratic 引导限制）
+	// 试图让 AI 扮演不同的角色（绕过诊断引导限制）
 	regexp.MustCompile(`(?i)(you\s+are\s+now|your\s+new\s+role\s+is|act\s+as\s+a)`),
 	// 试图读取系统提示词
 	regexp.MustCompile(`(?i)system\s*(prompt|message|instruction)s?\s*[:=]`),
@@ -45,7 +45,7 @@ var injectionPatterns = []*regexp.Regexp{
 	regexp.MustCompile(`(?i)DAN\s+mode|jailbreak|developer\s+mode`),
 
 	// ======== 答案提取攻击 ========
-	// 直接要求给出完整代码（Socratic 模式不允许直接给代码）
+	// 直接要求给出完整代码（诊断模式不允许直接给代码）
 	regexp.MustCompile(`(?i)(give|write|output|show|provide|tell)\s+(me\s+)?(the\s+)?(complete|full|entire|working|correct|accepted|ac)\s+(solution|code|answer|program|implementation)`),
 	// 简洁的命令式请求
 	regexp.MustCompile(`(?i)(just\s+give\s+me\s+the\s+(code|answer|solution))`),

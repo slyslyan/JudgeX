@@ -1,4 +1,6 @@
 import { createRouter, createWebHistory } from 'vue-router'
+import Login from '../views/Login.vue'
+import Register from '../views/Register.vue'
 
 const router = createRouter({
   history: createWebHistory(),
@@ -16,7 +18,12 @@ const router = createRouter({
     {
       path: '/login',
       name: 'Login',
-      component: () => import('../views/Login.vue'),
+      component: Login,
+    },
+    {
+      path: '/register',
+      name: 'Register',
+      component: Register,
     },
     {
       path: '/problems',
@@ -134,6 +141,18 @@ const router = createRouter({
       component: () => import('../views/NotFound.vue'),
     },
   ],
+})
+
+function isAuthenticated() {
+  return !!localStorage.getItem('token')
+}
+
+const publicPaths = ['/login', '/register']
+
+router.beforeEach((to) => {
+  const auth = isAuthenticated()
+  if (publicPaths.includes(to.path) && auth) return '/'
+  if (!publicPaths.includes(to.path) && !auth) return '/login'
 })
 
 export default router

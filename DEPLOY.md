@@ -1,6 +1,8 @@
 # JudgeX 云服务器部署指南
 
 > 适用场景：一台全新的云服务器（Ubuntu 22.04 / 24.04），从零开始部署 JudgeX 在线判题系统。本文档面向新手，每一步都有解释。
+>
+> **生产服务器：** `https://joyan.site`（腾讯云 CVM，Docker Compose + Nginx 反代）
 
 ---
 

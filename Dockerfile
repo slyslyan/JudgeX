@@ -1,8 +1,9 @@
 # Stage 0: Build frontend
 FROM node:22-alpine AS frontend-builder
+RUN sed -i 's/dl-cdn.alpinelinux.org/mirrors.aliyun.com/g' /etc/apk/repositories
 WORKDIR /app
-COPY frontend/package.json frontend/package-lock.json ./
-RUN npm ci
+COPY frontend/package.json frontend/package-lock.json frontend/.npmrc* ./
+RUN npm ci --registry=https://registry.npmmirror.com
 COPY frontend/ .
 RUN npm run build
 
@@ -29,7 +30,8 @@ RUN CGO_ENABLED=0 go build -ldflags="-s -w" -o judge-worker ./cmd/judge-worker
 # chroot jail + seccomp for defense-in-depth).
 FROM alpine:3.21
 
-RUN apk add --no-cache python3 g++ ca-certificates tzdata && \
+RUN sed -i 's/dl-cdn.alpinelinux.org/mirrors.aliyun.com/g' /etc/apk/repositories && \
+    apk add --no-cache python3 g++ ca-certificates tzdata && \
     mkdir -p /data/testcases
 
 COPY --from=go-builder /app/server /usr/local/bin/server

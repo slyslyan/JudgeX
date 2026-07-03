@@ -18,7 +18,7 @@ const visible = items.filter(i => i.role === 'admin' || (i.role === 'super_admin
 </script>
 
 <template>
-  <div class="flex h-[calc(100vh-3rem)]">
+  <div class="flex h-[calc(100vh-3rem)]" v-icon-color>
     <!-- Sidebar -->
     <div class="w-52 shrink-0 border-r border-zinc-200/60 bg-zinc-50/50 dark:bg-zinc-900/30 dark:border-zinc-800">
       <div class="px-4 py-4">
@@ -44,7 +44,11 @@ const visible = items.filter(i => i.role === 'admin' || (i.role === 'super_admin
 
     <!-- Content -->
     <div class="flex-1 overflow-y-auto">
-      <router-view />
+      <router-view v-slot="{ Component }">
+        <Transition name="page" mode="out-in">
+          <component :is="Component" />
+        </Transition>
+      </router-view>
     </div>
   </div>
 </template>

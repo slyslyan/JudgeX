@@ -14,7 +14,7 @@ const langFilter = ref('')
 const showMine = ref(false)
 
 const statusOptions = ['Accepted', 'Wrong Answer', 'Time Limit Exceeded', 'Runtime Error', 'Compile Error']
-const langOptions = ['cpp', 'python', 'java', 'go', 'rust']
+const langOptions = ['cpp', 'python', 'java', 'rust']
 
 function resetAndLoad() {
   submissions.value = []

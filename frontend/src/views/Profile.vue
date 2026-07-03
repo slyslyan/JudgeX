@@ -15,7 +15,6 @@ const langOptions = [
   { value: 'cpp', label: 'C++' },
   { value: 'python', label: 'Python' },
   { value: 'java', label: 'Java' },
-  { value: 'go', label: 'Go' },
   { value: 'rust', label: 'Rust' },
 ]
 
@@ -23,7 +22,6 @@ const defaultTemplates: Record<string, string> = {
   cpp: '#include <iostream>\nusing namespace std;\n\nint main() {\n    // your code here\n    return 0;\n}',
   python: '# your code here',
   java: 'import java.util.*;\n\npublic class Main {\n    public static void main(String[] args) {\n        // your code here\n    }\n}',
-  go: 'package main\n\nimport "fmt"\n\nfunc main() {\n    // your code here\n}',
   rust: 'fn main() {\n    // your code here\n}',
 }
 
@@ -158,7 +156,7 @@ async function changePw() {
 </script>
 
 <template>
-  <div class="mx-auto max-w-4xl px-6 py-8">
+  <div class="mx-auto max-w-4xl px-6 py-8" v-icon-color>
     <div v-if="loading" class="py-16 text-center text-sm text-zinc-400">加载中...</div>
 
     <template v-else-if="profile">

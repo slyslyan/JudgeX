@@ -56,8 +56,6 @@ func Run(language, code, input string, timeLimit, memoryLimit int) Result {
 		return runPython(code, input, timeLimit, memoryLimit)
 	case "java":
 		return runJava(workDir, code, input, timeLimit, memoryLimit)
-	case "go":
-		return runGo(workDir, code, input, timeLimit, memoryLimit)
 	case "rust":
 		return runRust(workDir, code, input, timeLimit, memoryLimit)
 	default:
@@ -155,40 +153,6 @@ func runJava(workDir, code, input string, timeLimit, memoryLimit int) Result {
 		TimeLimitMs:   timeLimit,
 		MemoryLimitMB: memoryLimit,
 		PidsMax:       32, // JVM 有 GC 线程、编译器线程等，需要更多进程
-	}
-	r, err := sandbox.Run(cfg)
-	if err != nil {
-		return Result{Status: StatusRuntimeError, ErrorMsg: fmt.Sprintf("sandbox error: %v", err)}
-	}
-	return sandboxResultToJudgeResult(r)
-}
-
-// runGo 编译并运行 Go 代码
-// Go 编译产物是静态链接的，对沙箱友好
-func runGo(workDir, code, input string, timeLimit, memoryLimit int) Result {
-	srcPath := filepath.Join(workDir, "main.go")
-	if err := os.WriteFile(srcPath, []byte(code), 0644); err != nil {
-		return Result{Status: StatusRuntimeError, ErrorMsg: "failed to write source file"}
-	}
-
-	binPath := filepath.Join(workDir, "main")
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-	defer cancel()
-
-	cmd := exec.CommandContext(ctx, "go", "build", "-o", binPath, srcPath)
-	var stderr bytes.Buffer
-	cmd.Stderr = &stderr
-	if err := cmd.Run(); err != nil {
-		return Result{Status: StatusCompileError, ErrorMsg: stderr.String()}
-	}
-
-	cfg := sandbox.Config{
-		BinaryPath:    binPath,
-		Args:          nil,
-		Stdin:         input,
-		TimeLimitMs:   timeLimit,
-		MemoryLimitMB: memoryLimit,
-		PidsMax:       16,
 	}
 	r, err := sandbox.Run(cfg)
 	if err != nil {

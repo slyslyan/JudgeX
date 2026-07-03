@@ -96,7 +96,7 @@ async function save() {
 </script>
 
 <template>
-  <div class="mx-auto max-w-2xl px-6 py-8">
+  <div class="mx-auto max-w-2xl px-6 py-8" v-icon-color>
     <div class="mb-4">
       <router-link to="/admin/dashboard" class="inline-flex items-center gap-1 text-sm text-zinc-400 hover:text-zinc-600 transition-colors dark:hover:text-zinc-300">
         <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18"/></svg>

@@ -2,6 +2,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { getTemplates, runCode, type RunResult } from '../api'
 import MonacoEditor from '../components/MonacoEditor.vue'
+import GlowButton from '../components/GlowButton.vue'
 
 const userTemplates = ref<Record<string, string>>({})
 
@@ -21,12 +22,11 @@ const LANG_CONFIG: Record<string, { label: string; color: string; ext: string; t
   c: { label: 'C', color: 'text-blue-400', ext: 'c', template: '#include <stdio.h>\n\nint main() {\n    // your code here\n    return 0;\n}' },
   python: { label: 'Python', color: 'text-yellow-500', ext: 'py', template: '# your code here' },
   java: { label: 'Java', color: 'text-orange-500', ext: 'java', template: 'import java.util.*;\n\npublic class Main {\n    public static void main(String[] args) {\n        // your code here\n    }\n}' },
-  go: { label: 'Go', color: 'text-cyan-500', ext: 'go', template: 'package main\n\nimport "fmt"\n\nfunc main() {\n    // your code here\n}' },
   rust: { label: 'Rust', color: 'text-purple-500', ext: 'rs', template: 'fn main() {\n    // your code here\n}' },
 }
 
 const EXT_TO_LANG: Record<string, string> = {
-  cpp: 'cpp', c: 'c', py: 'python', java: 'java', go: 'go', rs: 'rust',
+  cpp: 'cpp', c: 'c', py: 'python', java: 'java', rs: 'rust',
 }
 
 const files = ref<PlaygroundFile[]>([])
@@ -206,7 +206,7 @@ onMounted(async () => {
 </script>
 
 <template>
-  <div class="flex h-[calc(100vh-3.5rem)] flex-col bg-white dark:bg-zinc-950">
+  <div class="flex h-[calc(100vh-3.5rem)] flex-col bg-white dark:bg-zinc-950" v-icon-color>
     <!-- ======== Top Bar ======== -->
     <div class="flex shrink-0 items-center gap-2 border-b border-zinc-200 px-3 py-2 dark:border-zinc-800">
       <button
@@ -266,10 +266,11 @@ onMounted(async () => {
     <!-- ======== Body ======== -->
     <div class="flex flex-1 min-h-0">
       <!-- ======== Sidebar ======== -->
-      <div
-        v-show="sidebarOpen"
-        class="flex w-52 shrink-0 flex-col border-r border-zinc-200 bg-zinc-50/60 dark:border-zinc-800 dark:bg-zinc-900/40"
-      >
+      <Transition name="panel">
+        <div
+          v-if="sidebarOpen"
+          class="flex w-52 shrink-0 flex-col border-r border-zinc-200 bg-zinc-50/60 dark:border-zinc-800 dark:bg-zinc-900/40"
+        >
         <div class="flex items-center justify-between px-3 py-2">
           <span class="text-[11px] font-bold tracking-wider text-zinc-400 uppercase">资源管理器</span>
           <span class="text-[11px] text-zinc-400">{{ files.length }}</span>
@@ -329,7 +330,8 @@ onMounted(async () => {
         </div>
 
         <!-- quick-create buttons removed -->
-      </div>
+        </div>
+      </Transition>
 
       <!-- ======== Editor area ======== -->
       <div class="flex flex-1 flex-col min-h-0">
@@ -393,10 +395,11 @@ onMounted(async () => {
           </div>
 
           <!-- Console -->
-          <div
-            v-show="consoleVisible"
-            class="flex w-[480px] shrink-0 min-h-0 flex-col border-l border-zinc-200 bg-zinc-50/50 dark:border-zinc-800 dark:bg-zinc-900/30"
-          >
+          <Transition name="panel">
+            <div
+              v-if="consoleVisible"
+              class="flex w-[480px] shrink-0 min-h-0 flex-col border-l border-zinc-200 bg-zinc-50/50 dark:border-zinc-800 dark:bg-zinc-900/30"
+            >
             <div class="flex shrink-0 items-center border-b border-zinc-200 px-4 py-2.5 dark:border-zinc-800">
               <span class="text-xs font-bold text-zinc-500 uppercase tracking-wider">测试控制台</span>
               <span v-if="activeFile" class="ml-2 text-[10px] text-zinc-400">— {{ activeFile.name }}</span>
@@ -453,13 +456,14 @@ onMounted(async () => {
 
             <!-- status + run -->
             <div class="flex shrink-0 items-center gap-3 border-t border-zinc-200 px-4 py-2.5 dark:border-zinc-800">
-              <button
-                class="btn-gradient text-xs"
+              <GlowButton
+                class="px-4 py-1.5 text-xs font-semibold gap-1"
                 @click="handleRun"
                 :disabled="runningCode || !activeFile"
               >
+                <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polygon points="5 3 19 12 5 21 5 3"/></svg>
                 {{ runningCode ? '运行中...' : '运行' }}
-              </button>
+              </GlowButton>
 
               <template v-if="runResult && outputMatch !== null">
                 <span
@@ -490,18 +494,20 @@ onMounted(async () => {
               <span v-if="runResult" class="text-xs text-zinc-400">Time: {{ runResult.time_used }} ms</span>
               <span v-if="runResult" class="text-xs text-zinc-400">Memory: {{ runResult.memory_used }} KB</span>
             </div>
-          </div>
+            </div>
+          </Transition>
         </div>
       </div>
     </div>
 
     <!-- ======== 新建文件 Modal ======== -->
     <Teleport to="body">
-      <div
-        v-if="showNewModal"
-        class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm"
-        @click.self="showNewModal = false"
-      >
+      <Transition name="scale">
+        <div
+          v-if="showNewModal"
+          class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm"
+          @click.self="showNewModal = false"
+        >
         <div class="w-96 rounded-2xl border border-zinc-200 bg-white p-6 shadow-xl dark:border-zinc-700 dark:bg-zinc-900">
           <h3 class="text-sm font-bold text-zinc-800 dark:text-zinc-200">新建文件</h3>
 
@@ -547,6 +553,7 @@ onMounted(async () => {
           </div>
         </div>
       </div>
+      </Transition>
     </Teleport>
 
     <!-- ======== Status Bar ======== -->

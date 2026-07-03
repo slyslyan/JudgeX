@@ -74,6 +74,7 @@ vim k8s/01-secret.yaml
 
 ### 6. Access
 
+- 生产环境: `https://joyan.site`
 - 测试: `kubectl -n judgex port-forward svc/frontend 8081:80`
 - 或通过 Ingress + Traefik: 把域名解析到服务器 IP，修改 `ingress.yaml` 的 `host`
 

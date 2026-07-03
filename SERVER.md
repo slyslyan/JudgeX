@@ -11,8 +11,8 @@
 
 ## 访问地址
 
-- **网站**: http://150.158.113.146:8080
-- **API**: http://150.158.113.146:8080/api
+- **网站**: https://joyan.site
+- **API**: https://joyan.site/api
 - **管理员账号**: admin / adminadmin
 
 ## 架构
@@ -70,6 +70,8 @@ kubectl get configmap -n judgex judgex-config -o yaml
 ## 更新部署
 
 ### 方式：Docker 镜像更新（推荐）
+
+> 当前生产环境使用 Docker Compose 部署（非 K3s），详见下方命令。
 
 ```bash
 # 1. 构建前端

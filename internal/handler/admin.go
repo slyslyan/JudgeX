@@ -45,15 +45,15 @@ type userInfo struct {
 // 返回所有用户的列表（不包含密码哈希等敏感信息）。
 func (h *AdminHandler) ListUsers(c *gin.Context) {
 	var users []model.User
-	database.DB.Find(&users)
-	result := make([]userInfo, len(users))
-	for i, u := range users {
-		result[i] = userInfo{
+	database.DB.Order("id ASC").Limit(200).Find(&users)
+	result := make([]userInfo, 0, len(users))
+	for _, u := range users {
+		result = append(result, userInfo{
 			ID:       u.ID,
 			Username: u.Username,
 			Email:    u.Email,
 			Role:     u.Role,
-		}
+		})
 	}
 	c.JSON(http.StatusOK, gin.H{"users": result})
 }

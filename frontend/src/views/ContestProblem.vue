@@ -3,6 +3,7 @@ import { ref, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { getProblem, submitContestCode } from '../api'
 import MonacoEditor from '../components/MonacoEditor.vue'
+import GlowButton from '../components/GlowButton.vue'
 import MarkdownRenderer from '../components/MarkdownRenderer.vue'
 
 const route = useRoute()
@@ -18,7 +19,6 @@ const langOptions = [
   { value: 'cpp', label: 'C++' },
   { value: 'python', label: 'Python' },
   { value: 'java', label: 'Java' },
-  { value: 'go', label: 'Go' },
   { value: 'rust', label: 'Rust' },
 ]
 
@@ -26,7 +26,6 @@ const templates: Record<string, string> = {
   cpp: '#include <iostream>\nusing namespace std;\n\nint main() {\n    // your code here\n    return 0;\n}',
   python: '# your code here',
   java: 'import java.util.*;\n\npublic class Main {\n    public static void main(String[] args) {\n        // your code here\n    }\n}',
-  go: 'package main\n\nimport "fmt"\n\nfunc main() {\n    // your code here\n}',
   rust: 'fn main() {\n    // your code here\n}',
 }
 
@@ -79,7 +78,7 @@ async function submit() {
 </script>
 
 <template>
-  <div v-if="problem" class="flex h-[calc(100vh-3.5rem)]">
+  <div v-if="problem" class="flex h-[calc(100vh-3.5rem)]" v-icon-color>
     <!-- Left: Problem description -->
     <div class="w-1/2 overflow-y-auto border-r border-zinc-200 bg-white p-6 dark:bg-zinc-950 dark:border-zinc-800">
       <button
@@ -138,13 +137,16 @@ async function submit() {
           </option>
         </select>
 
-        <button
+        <GlowButton
+          class="px-5 py-2 text-sm font-semibold gap-1.5"
           :disabled="submitting"
-          class="btn-gradient"
           @click="submit"
         >
-          {{ submitting ? 'Submitting...' : 'Submit' }}
-        </button>
+          <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/>
+          </svg>
+          {{ submitting ? '提交中...' : '提交' }}
+        </GlowButton>
       </div>
 
       <div class="flex-1">

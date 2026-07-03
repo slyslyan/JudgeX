@@ -78,6 +78,7 @@ services:
       LLM_API_URL: https://api.openai.com/v1
       LLM_API_KEY: ""
       LLM_MODEL: gpt-4o-mini
+      INSECURE: "1"
     depends_on:
       mysql:
         condition: service_healthy
@@ -104,6 +105,7 @@ services:
       JWT_SECRET: judgex-secret-change-in-production
       TEST_DATA_PATH: /data/testcases
       LOG_LEVEL: info
+      INSECURE: "1"
     depends_on:
       mysql:
         condition: service_healthy

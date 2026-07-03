@@ -21,7 +21,6 @@ const langMap: Record<string, string> = {
   c: 'c',
   python: 'python',
   java: 'java',
-  go: 'go',
   rust: 'rust',
 }
 

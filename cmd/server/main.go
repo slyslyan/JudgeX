@@ -258,17 +258,11 @@ func main() {
 			protected.GET("/problems/:id/last-code", submissionH.LastCode) // 获取用户上次提交的代码
 			protected.POST("/run", submissionH.Run)                        // 运行（不保存提交记录）
 
-			// AI 助手（SSE 流式响应）
-			protected.POST("/ai/chat", handler.ChatStream)                                                     // 通用 AI 对话
-			protected.POST("/ai/debug", handler.DebugHandler)                                                  // AI Debug Agent
-			protected.POST("/ai/generate-test-script", middleware.AdminRequired(), handler.GenerateTestScript) // AI 测试用例生成
-			protected.POST("/ai/sre", middleware.AdminRequired(), handler.SREDiagnose)                         // SRE 诊断
-			protected.POST("/ai/sre/agent", middleware.AdminRequired(), handler.SREAgentChat)                  // SRE Ops Agent
+			// AI 助手
+			protected.POST("/ai/diagnose", middleware.RateLimit(5, time.Minute), handler.AIDiagnoseHandler) // AI 诊断助手
 
-			// SRE 监控（管理员）
+			// 系统监控（管理员）
 			protected.GET("/admin/sre/snapshot", middleware.AdminRequired(), handler.SRESnapshot)
-			protected.GET("/admin/ai/status", middleware.AdminRequired(), handler.AIStatus)
-			protected.POST("/admin/alerts/webhook", middleware.AdminRequired(), handler.AlertWebhook)
 
 			// 废弃的测试用例接口（保留向后兼容）
 			protected.POST("/problems/:id/testcases", middleware.AdminRequired(), createTestCase)

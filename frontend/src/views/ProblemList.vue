@@ -2,6 +2,7 @@
 import { ref, onMounted, watch, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { getProblems, deleteProblem, type Problem, type ProblemTag } from '../api'
+import PaginationWhite from '../components/PaginationWhite.vue'
 
 const router = useRouter()
 const problems = ref<Problem[]>([])
@@ -82,8 +83,6 @@ async function remove(id: number) {
   load()
 }
 
-function prevPage() { if (page.value > 1) page.value-- }
-function nextPage() { if (page.value < totalPages.value) page.value++ }
 
 function onSearchInput() {
   if (debounceTimer) clearTimeout(debounceTimer)
@@ -96,7 +95,7 @@ function onSearchInput() {
 </script>
 
 <template>
-  <div class="mx-auto max-w-4xl px-6 py-8">
+  <div class="mx-auto max-w-4xl px-6 py-8" v-icon-color>
     <div class="mb-6 flex items-center justify-between gap-3">
       <h2 class="text-xl font-semibold tracking-tight text-zinc-900 dark:text-white">题库</h2>
       <div class="flex items-center gap-3">
@@ -219,23 +218,15 @@ function onSearchInput() {
       </table>
     </div>
 
-    <div v-if="totalPages > 1" class="mt-5 flex items-center justify-between">
+    <div class="mt-5 flex items-center justify-between">
       <span class="text-sm text-zinc-400">共 {{ total }} 题</span>
-      <div class="flex items-center gap-2">
-        <button
-          :disabled="page <= 1"
-          class="apple-btn-secondary text-xs"
-          @click="prevPage"
-        >上一页</button>
-        <span class="text-xs font-medium text-zinc-500">{{ page }} / {{ totalPages }}</span>
-        <button
-          :disabled="page >= totalPages"
-          class="apple-btn-secondary text-xs"
-          @click="nextPage"
-        >下一页</button>
-      </div>
+      <PaginationWhite
+        v-if="totalPages > 1"
+        :current-page="page"
+        :total-pages="totalPages"
+        @page-change="page = $event"
+      />
     </div>
-    <div v-else class="mt-4 text-right text-sm text-zinc-400">共 {{ total }} 题</div>
   </div>
 </template>
 

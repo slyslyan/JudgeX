@@ -210,85 +210,85 @@ function formatPenalty(seconds: number): string {
         </button>
       </div>
 
-      <!-- Problems Tab -->
-      <div v-if="activeTab === 'problems'">
-        <div class="table-premium dark:bg-zinc-900">
-          <table class="w-full text-sm">
-            <thead>
-              <tr class="border-b border-zinc-100 bg-gradient-to-r from-zinc-50/80 to-zinc-50/30 dark:from-zinc-800/50 dark:to-zinc-800/30 dark:border-zinc-800">
-                <th class="px-4 py-3.5 text-left text-xs font-semibold uppercase tracking-wider text-zinc-400 w-16">#</th>
-                <th class="px-4 py-3.5 text-left text-xs font-semibold uppercase tracking-wider text-zinc-400">标题</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr
-                v-for="p in problems"
-                :key="p.id"
-                class="border-t border-zinc-100 transition-all duration-200 hover:bg-brand-50/30 dark:border-zinc-800 dark:hover:bg-zinc-800/50"
-                :class="contestStatus === 'Running' ? 'cursor-pointer' : 'cursor-default'"
-                @click="handleProblemClick(p.problem_id)"
-              >
-                <td class="px-4 py-3.5">
-                  <span class="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-brand-100 text-sm font-bold text-brand-700 dark:bg-brand-900/40 dark:text-brand-400">
-                    {{ p.display_id }}
-                  </span>
-                </td>
-                <td class="px-4 py-3.5 font-medium text-zinc-700 transition-colors hover:text-brand-600 dark:text-zinc-300 dark:hover:text-brand-400">{{ p.problem_title || `#${p.problem_id}` }}</td>
-              </tr>
-            </tbody>
-          </table>
-          <p v-if="problems.length === 0" class="py-16 text-center text-sm text-zinc-400">
-            暂无题目
-          </p>
+      <!-- Tab content -->
+      <Transition name="fade" mode="out-in">
+        <div v-if="activeTab === 'problems'" key="problems">
+          <div class="table-premium dark:bg-zinc-900">
+            <table class="w-full text-sm">
+              <thead>
+                <tr class="border-b border-zinc-100 bg-gradient-to-r from-zinc-50/80 to-zinc-50/30 dark:from-zinc-800/50 dark:to-zinc-800/30 dark:border-zinc-800">
+                  <th class="px-4 py-3.5 text-left text-xs font-semibold uppercase tracking-wider text-zinc-400 w-16">#</th>
+                  <th class="px-4 py-3.5 text-left text-xs font-semibold uppercase tracking-wider text-zinc-400">标题</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr
+                  v-for="p in problems"
+                  :key="p.id"
+                  class="border-t border-zinc-100 transition-all duration-200 hover:bg-brand-50/30 dark:border-zinc-800 dark:hover:bg-zinc-800/50"
+                  :class="contestStatus === 'Running' ? 'cursor-pointer' : 'cursor-default'"
+                  @click="handleProblemClick(p.problem_id)"
+                >
+                  <td class="px-4 py-3.5">
+                    <span class="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-brand-100 text-sm font-bold text-brand-700 dark:bg-brand-900/40 dark:text-brand-400">
+                      {{ p.display_id }}
+                    </span>
+                  </td>
+                  <td class="px-4 py-3.5 font-medium text-zinc-700 transition-colors hover:text-brand-600 dark:text-zinc-300 dark:hover:text-brand-400">{{ p.problem_title || `#${p.problem_id}` }}</td>
+                </tr>
+              </tbody>
+            </table>
+            <p v-if="problems.length === 0" class="py-16 text-center text-sm text-zinc-400">
+              暂无题目
+            </p>
+          </div>
         </div>
-      </div>
-
-      <!-- Leaderboard Tab -->
-      <div v-if="activeTab === 'leaderboard'">
-        <div class="table-premium dark:bg-zinc-900">
-          <table class="w-full text-sm">
-            <thead>
-              <tr class="border-b border-zinc-100 bg-gradient-to-r from-zinc-50/80 to-zinc-50/30 dark:from-zinc-800/50 dark:to-zinc-800/30 dark:border-zinc-800">
-                <th class="px-4 py-3.5 text-left text-xs font-semibold uppercase tracking-wider text-zinc-400 w-16">#</th>
-                <th class="px-4 py-3.5 text-left text-xs font-semibold uppercase tracking-wider text-zinc-400">普通用户</th>
-                <th class="px-4 py-3.5 text-center text-xs font-semibold uppercase tracking-wider text-zinc-400 w-20">通过数</th>
-                <th class="px-4 py-3.5 text-right text-xs font-semibold uppercase tracking-wider text-zinc-400 w-24">Penalty</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr
-                v-for="entry in leaderboard"
-                :key="entry.user_id"
-                class="border-t border-zinc-100 transition-all duration-200 dark:border-zinc-800"
-                :class="entry.rank <= 3 ? 'bg-gradient-to-r from-amber-50/60 to-transparent dark:from-amber-900/10 dark:to-transparent' : 'hover:bg-zinc-50/50 dark:hover:bg-zinc-800/50'"
-              >
-                <td class="px-4 py-3.5">
-                  <span v-if="entry.rank === 1"
-                    class="inline-flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-amber-300 to-amber-500 text-xs font-bold text-white shadow-lg shadow-amber-200 dark:shadow-amber-900/40"
-                  >1</span>
-                  <span v-else-if="entry.rank === 2"
-                    class="inline-flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-zinc-300 to-zinc-400 text-xs font-bold text-white shadow-lg shadow-zinc-200 dark:shadow-zinc-900/40"
-                  >2</span>
-                  <span v-else-if="entry.rank === 3"
-                    class="inline-flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-amber-500 to-amber-700 text-xs font-bold text-white shadow-lg shadow-amber-200 dark:shadow-amber-900/40"
-                  >3</span>
-                  <span v-else class="ml-2 text-sm text-zinc-400">{{ entry.rank }}</span>
-                </td>
-                <td class="px-4 py-3.5">
-                  <span class="font-semibold text-zinc-800 cursor-pointer transition-colors hover:text-brand-600 dark:text-zinc-200 dark:hover:text-brand-400" @click="router.push(`/users/${entry.user_id}`)">
-                    {{ entry.username || `User #${entry.user_id}` }}
-                  </span>
-                </td>
-                <td class="px-4 py-3.5 text-center font-mono font-bold text-brand-600 dark:text-brand-400">{{ entry.solved }}</td>
-                <td class="px-4 py-3.5 text-right font-mono text-xs text-zinc-500">{{ formatPenalty(entry.penalty) }}</td>
-              </tr>
-            </tbody>
-          </table>
-          <p v-if="leaderboard.length === 0" class="py-16 text-center text-sm text-zinc-400">
-            暂无提交
-          </p>
+        <div v-else-if="activeTab === 'leaderboard'" key="leaderboard">
+          <div class="table-premium dark:bg-zinc-900">
+            <table class="w-full text-sm">
+              <thead>
+                <tr class="border-b border-zinc-100 bg-gradient-to-r from-zinc-50/80 to-zinc-50/30 dark:from-zinc-800/50 dark:to-zinc-800/30 dark:border-zinc-800">
+                  <th class="px-4 py-3.5 text-left text-xs font-semibold uppercase tracking-wider text-zinc-400 w-16">#</th>
+                  <th class="px-4 py-3.5 text-left text-xs font-semibold uppercase tracking-wider text-zinc-400">普通用户</th>
+                  <th class="px-4 py-3.5 text-center text-xs font-semibold uppercase tracking-wider text-zinc-400 w-20">通过数</th>
+                  <th class="px-4 py-3.5 text-right text-xs font-semibold uppercase tracking-wider text-zinc-400 w-24">Penalty</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr
+                  v-for="entry in leaderboard"
+                  :key="entry.user_id"
+                  class="border-t border-zinc-100 transition-all duration-200 dark:border-zinc-800"
+                  :class="entry.rank <= 3 ? 'bg-gradient-to-r from-amber-50/60 to-transparent dark:from-amber-900/10 dark:to-transparent' : 'hover:bg-zinc-50/50 dark:hover:bg-zinc-800/50'"
+                >
+                  <td class="px-4 py-3.5">
+                    <span v-if="entry.rank === 1"
+                      class="inline-flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-amber-300 to-amber-500 text-xs font-bold text-white shadow-lg shadow-amber-200 dark:shadow-amber-900/40"
+                    >1</span>
+                    <span v-else-if="entry.rank === 2"
+                      class="inline-flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-zinc-300 to-zinc-400 text-xs font-bold text-white shadow-lg shadow-zinc-200 dark:shadow-zinc-900/40"
+                    >2</span>
+                    <span v-else-if="entry.rank === 3"
+                      class="inline-flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-amber-500 to-amber-700 text-xs font-bold text-white shadow-lg shadow-amber-200 dark:shadow-amber-900/40"
+                    >3</span>
+                    <span v-else class="ml-2 text-sm text-zinc-400">{{ entry.rank }}</span>
+                  </td>
+                  <td class="px-4 py-3.5">
+                    <span class="font-semibold text-zinc-800 cursor-pointer transition-colors hover:text-brand-600 dark:text-zinc-200 dark:hover:text-brand-400" @click="router.push(`/users/${entry.user_id}`)">
+                      {{ entry.username || `User #${entry.user_id}` }}
+                    </span>
+                  </td>
+                  <td class="px-4 py-3.5 text-center font-mono font-bold text-brand-600 dark:text-brand-400">{{ entry.solved }}</td>
+                  <td class="px-4 py-3.5 text-right font-mono text-xs text-zinc-500">{{ formatPenalty(entry.penalty) }}</td>
+                </tr>
+              </tbody>
+            </table>
+            <p v-if="leaderboard.length === 0" class="py-16 text-center text-sm text-zinc-400">
+              暂无提交
+            </p>
+          </div>
         </div>
-      </div>
+      </Transition>
     </template>
   </div>
 </template>

@@ -1,11 +1,10 @@
 <script setup lang="ts">
-import { ref, onMounted, watch, computed, nextTick } from 'vue'
+import { ref, onMounted, watch, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { getProblem, submitCode, getLastCode, getTemplates, runCode, type Problem, type RunResult } from '../api'
 import MonacoEditor from '../components/MonacoEditor.vue'
+import GlowButton from '../components/GlowButton.vue'
 import MarkdownRenderer from '../components/MarkdownRenderer.vue'
-import AiChat from '../components/AiChat.vue'
-import DebugAgent from '../components/DebugAgent.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -17,7 +16,6 @@ const langOptions = [
   { value: 'cpp', label: 'C++' },
   { value: 'python', label: 'Python' },
   { value: 'java', label: 'Java' },
-  { value: 'go', label: 'Go' },
   { value: 'rust', label: 'Rust' },
 ]
 
@@ -47,7 +45,6 @@ const defaultTemplates: Record<string, string> = {
   cpp: '#include <iostream>\nusing namespace std;\n\nint main() {\n    // your code here\n    return 0;\n}',
   python: '# your code here',
   java: 'import java.util.*;\n\npublic class Main {\n    public static void main(String[] args) {\n        // your code here\n    }\n}',
-  go: 'package main\n\nimport "fmt"\n\nfunc main() {\n    // your code here\n}',
   rust: 'fn main() {\n    // your code here\n}',
 }
 
@@ -106,34 +103,12 @@ onMounted(async () => {
 })
 
 const showTags = ref(false)
-const showHintChat = ref(false)
-const socraticReveal = ref<{ agentType: string; message: string } | null>(null)
-
 const showDebug = ref(true)
 const debugInput = ref('')
 const debugExpected = ref('')
 const runningCode = ref(false)
 const runResult = ref<RunResult | null>(null)
 const outputMatch = ref<boolean | null>(null)
-
-const showAiDebug = ref(false)
-const aiDebugCode = ref('')
-
-function toggleAiDebug() {
-  showAiDebug.value = !showAiDebug.value
-  if (showAiDebug.value) {
-    aiDebugCode.value = code.value
-  }
-}
-
-function applyFix(fixedCode: string) {
-  code.value = fixedCode
-  onCodeChange(fixedCode)
-  showAiDebug.value = false
-  const key = `judgex-draft-${problemId.value}-${language.value}`
-  localStorage.setItem(key, fixedCode)
-  ;(window as any).$toast?.success('已应用修复代码')
-}
 
 function loadSampleInput() {
   if (sampleCases.value.length > 0) {
@@ -173,17 +148,6 @@ async function handleRun() {
   }
 }
 
-function askForHint() {
-  showHintChat.value = true
-  nextTick(() => {
-    socraticReveal.value = {
-      agentType: 'socratic',
-      message: `I'm stuck on "${problem.value?.title}". I don't know where to start. Can you guide me with some questions to help me figure out the approach?`,
-    }
-    nextTick(() => { socraticReveal.value = null })
-  })
-}
-
 const sampleCases = computed(() => {
   if (!problem.value?.sample_cases) return []
   const sc = problem.value.sample_cases
@@ -212,7 +176,7 @@ async function submit() {
 </script>
 
 <template>
-  <div v-if="problem" class="flex h-[calc(100vh-3.5rem)]">
+  <div v-if="problem" class="flex h-[calc(100vh-3.5rem)]" v-icon-color>
     <!-- Left: Problem description -->
     <div class="w-1/2 flex flex-col border-r border-zinc-200 bg-white dark:bg-zinc-950 dark:border-zinc-800">
       <div class="shrink-0 p-6 pb-3">
@@ -232,26 +196,6 @@ async function submit() {
           >
             全屏编辑器
           </router-link>
-          <button
-            class="rounded-xl border border-brand-200 bg-gradient-to-br from-brand-50 to-brand-100 px-4 py-1.5 text-xs font-semibold text-brand-700 shadow-sm transition-all duration-200 hover:shadow-md hover:scale-105 dark:from-brand-900/20 dark:to-brand-900/30 dark:border-brand-800 dark:text-brand-400"
-            @click="askForHint"
-            aria-label="需要提示"
-          >
-            需要提示？
-          </button>
-          <AiChat
-            v-if="showHintChat && problem"
-            variant="dropdown"
-            :options="{ agentType: 'socratic', problemId: problem.id }"
-            :reveal="socraticReveal"
-            :suggestions="[
-              '时间复杂度是多少？',
-              '如何处理边界情况？',
-              '解释一下题目要求',
-              '给我一点提示'
-            ]"
-            @close="showHintChat = false"
-          />
         </div>
 
         <!-- Tags row: hidden by default, click to reveal -->
@@ -269,13 +213,15 @@ async function submit() {
             </svg>
             {{ showTags ? '收起标签' : '显示标签' }}
           </button>
-          <div v-if="showTags" class="flex flex-wrap items-center gap-1.5">
-            <span
-              v-for="tag in problem.tags"
-              :key="tag.id"
-              class="rounded-lg bg-amber-50 px-2.5 py-1 text-xs font-medium text-amber-700 border border-amber-200 dark:bg-amber-900/20 dark:text-amber-400 dark:border-amber-800"
-            >{{ tag.name }}</span>
-          </div>
+          <Transition name="fade">
+            <div v-if="showTags" class="flex flex-wrap items-center gap-1.5">
+              <span
+                v-for="tag in problem.tags"
+                :key="tag.id"
+                class="rounded-lg bg-amber-50 px-2.5 py-1 text-xs font-medium text-amber-700 border border-amber-200 dark:bg-amber-900/20 dark:text-amber-400 dark:border-amber-800"
+              >{{ tag.name }}</span>
+            </div>
+          </Transition>
         </div>
       </div>
 
@@ -330,137 +276,127 @@ async function submit() {
           </option>
         </select>
 
-        <button
+        <GlowButton
+          class="px-5 py-2 text-sm font-semibold gap-1.5"
           :disabled="submitting"
-          class="btn-gradient"
           @click="submit"
           aria-label="提交代码"
         >
+          <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/>
+          </svg>
           {{ submitting ? '提交中...' : '提交' }}
-        </button>
-        <button
-          class="rounded-xl border border-brand-200 bg-gradient-to-br from-brand-50 to-brand-100 px-4 py-2 text-sm font-semibold text-brand-700 shadow-sm transition-all duration-200 hover:shadow-md hover:scale-105 dark:from-brand-900/20 dark:to-brand-900/30 dark:border-brand-800 dark:text-brand-400"
-          @click="toggleAiDebug"
-        >
-          <svg class="mr-1 h-3.5 w-3.5 inline" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a4.5 4.5 0 00-3.09-3.09L13.5 5.25l1.035-.259a4.5 4.5 0 003.09-3.09L18 .75l.259 1.035a4.5 4.5 0 003.09 3.09L22.5 5.25l-1.035.259a4.5 4.5 0 00-3.09 3.09z"/></svg>
-          AI Debug
-        </button>
+        </GlowButton>
       </div>
 
       <div class="flex-1 min-h-0">
         <MonacoEditor :model-value="code" :language="language" :problem-id="problemId" @update:model-value="onCodeChange" />
       </div>
 
-      <!-- AI Debug Agent panel -->
-      <div v-if="showAiDebug" class="shrink-0 border-t border-zinc-200 dark:border-zinc-800">
-        <DebugAgent
-          :problem-id="problemId"
-          :code="aiDebugCode"
-          :language="language"
-          @apply-fix="applyFix"
-          @close="showAiDebug = false"
-        />
-      </div>
-
       <!-- Manual debug panel -->
-      <div v-show="showDebug" class="shrink-0 border-t border-zinc-200 dark:border-zinc-800">
-        <div class="flex items-center justify-between bg-gradient-to-r from-zinc-50 to-zinc-100 px-4 py-2.5 dark:from-zinc-900 dark:to-zinc-900/50">
-          <span class="text-xs font-bold text-zinc-500 uppercase tracking-wider">调试控制台</span>
-          <div class="flex items-center gap-2">
-            <button class="rounded-lg px-3 py-1 text-xs font-medium text-zinc-500 transition-all duration-200 hover:bg-zinc-200 hover:text-zinc-700 dark:hover:bg-zinc-800 dark:hover:text-zinc-300" @click="loadSampleInput" aria-label="加载示例输入">加载示例</button>
-            <button :disabled="runningCode" class="rounded-lg bg-brand-600 px-4 py-1.5 text-xs font-semibold text-white shadow-sm shadow-brand-500/25 transition-all duration-200 hover:bg-brand-700 hover:shadow-md disabled:opacity-50" @click="handleRun" aria-label="运行代码">{{ runningCode ? '运行中...' : '运行' }}</button>
-            <button class="rounded-lg px-2 py-1 text-xs font-medium text-zinc-400 transition-colors hover:text-zinc-600 dark:hover:text-zinc-300" @click="showDebug = false" aria-label="收起调试控制台">收起</button>
-          </div>
-        </div>
-
-        <div class="grid grid-cols-2 gap-3 p-4">
-          <div>
-            <div class="mb-1.5 text-xs font-semibold text-zinc-400 uppercase tracking-wider">输入</div>
-            <textarea
-              v-model="debugInput"
-              rows="8"
-              class="input-glow w-full resize-none rounded-xl border border-zinc-200 bg-zinc-50 px-4 py-3 text-sm font-mono text-zinc-700 placeholder:text-zinc-400 dark:bg-zinc-900 dark:text-zinc-300 dark:border-zinc-700"
-              placeholder="在此粘贴测试输入..."
-            ></textarea>
+      <Transition name="slide-up" mode="out-in">
+        <div v-if="showDebug" key="debug-panel" class="shrink-0 border-t border-zinc-200 dark:border-zinc-800">
+          <div class="flex items-center justify-between bg-gradient-to-r from-zinc-50 to-zinc-100 px-4 py-2.5 dark:from-zinc-900 dark:to-zinc-900/50">
+            <span class="text-xs font-bold text-zinc-500 uppercase tracking-wider">调试控制台</span>
+            <div class="flex items-center gap-2">
+              <button class="rounded-lg px-3 py-1 text-xs font-medium text-zinc-500 transition-all duration-200 hover:bg-zinc-200 hover:text-zinc-700 dark:hover:bg-zinc-800 dark:hover:text-zinc-300" @click="loadSampleInput" aria-label="加载示例输入">加载示例</button>
+              <GlowButton :disabled="runningCode" class="px-4 py-1.5 text-xs font-semibold gap-1" @click="handleRun" aria-label="运行代码">
+                <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+                {{ runningCode ? '运行中...' : '运行' }}
+              </GlowButton>
+              <button class="rounded-lg px-2 py-1 text-xs font-medium text-zinc-400 transition-colors hover:text-zinc-600 dark:hover:text-zinc-300" @click="showDebug = false" aria-label="收起调试控制台">收起</button>
+            </div>
           </div>
 
-          <div class="flex flex-col gap-3">
+          <div class="grid grid-cols-2 gap-3 p-4">
             <div>
-              <div class="mb-1.5 text-xs font-semibold text-zinc-400 uppercase tracking-wider">期望输出</div>
+              <div class="mb-1.5 text-xs font-semibold text-zinc-400 uppercase tracking-wider">输入</div>
               <textarea
-                v-model="debugExpected"
-                rows="3"
-                class="input-glow w-full resize-none rounded-xl border border-zinc-200 bg-zinc-50 px-4 py-3 text-sm font-mono text-zinc-600 placeholder:text-zinc-400 dark:bg-zinc-900 dark:text-zinc-300 dark:border-zinc-700"
-                placeholder="（选填）"
+                v-model="debugInput"
+                rows="8"
+                class="input-glow w-full resize-none rounded-xl border border-zinc-200 bg-zinc-50 px-4 py-3 text-sm font-mono text-zinc-700 placeholder:text-zinc-400 dark:bg-zinc-900 dark:text-zinc-300 dark:border-zinc-700"
+                placeholder="在此粘贴测试输入..."
               ></textarea>
             </div>
-            <div class="flex-1">
-              <div class="mb-1.5 text-xs font-semibold text-zinc-400 uppercase tracking-wider">实际输出</div>
-              <div
-                v-if="runningCode"
-                class="flex h-24 items-center justify-center rounded-xl border border-zinc-200 bg-zinc-50 text-sm text-zinc-400 shadow-sm dark:bg-zinc-900 dark:border-zinc-700"
-              >
-                运行中...
+
+            <div class="flex flex-col gap-3">
+              <div>
+                <div class="mb-1.5 text-xs font-semibold text-zinc-400 uppercase tracking-wider">期望输出</div>
+                <textarea
+                  v-model="debugExpected"
+                  rows="3"
+                  class="input-glow w-full resize-none rounded-xl border border-zinc-200 bg-zinc-50 px-4 py-3 text-sm font-mono text-zinc-600 placeholder:text-zinc-400 dark:bg-zinc-900 dark:text-zinc-300 dark:border-zinc-700"
+                  placeholder="（选填）"
+                ></textarea>
               </div>
-              <pre
-                v-else-if="runResult"
-                :class="[
-                  'overflow-auto rounded-xl border p-4 text-sm font-mono shadow-sm',
-                  outputMatch === true
-                    ? 'border-emerald-200 bg-emerald-50/50 text-emerald-800 dark:bg-emerald-900/20 dark:border-emerald-800 dark:text-emerald-400'
-                    : outputMatch === false
-                      ? 'border-red-200 bg-red-50/50 text-red-800 dark:bg-red-900/20 dark:border-red-800 dark:text-red-400'
-                      : runResult.status !== 'Accepted' && runResult.status !== 'Error'
+              <div class="flex-1">
+                <div class="mb-1.5 text-xs font-semibold text-zinc-400 uppercase tracking-wider">实际输出</div>
+                <div
+                  v-if="runningCode"
+                  class="flex h-24 items-center justify-center rounded-xl border border-zinc-200 bg-zinc-50 text-sm text-zinc-400 shadow-sm dark:bg-zinc-900 dark:border-zinc-700"
+                >
+                  运行中...
+                </div>
+                <pre
+                  v-else-if="runResult"
+                  :class="[
+                    'overflow-auto rounded-xl border p-4 text-sm font-mono shadow-sm',
+                    outputMatch === true
+                      ? 'border-emerald-200 bg-emerald-50/50 text-emerald-800 dark:bg-emerald-900/20 dark:border-emerald-800 dark:text-emerald-400'
+                      : outputMatch === false
                         ? 'border-red-200 bg-red-50/50 text-red-800 dark:bg-red-900/20 dark:border-red-800 dark:text-red-400'
-                        : 'border-zinc-200 bg-zinc-50 text-zinc-700 dark:bg-zinc-900 dark:border-zinc-700 dark:text-zinc-300'
-                ]"
-              >{{ runResult.stdout || runResult.stderr || '（无输出）' }}</pre>
-              <div
-                v-else
-                class="flex h-24 items-center justify-center rounded-xl border border-zinc-200 bg-zinc-50 text-sm text-zinc-400 shadow-sm dark:bg-zinc-900 dark:border-zinc-700"
-              >
-                点击"运行"执行代码
+                        : runResult.status !== 'Accepted' && runResult.status !== 'Error'
+                          ? 'border-red-200 bg-red-50/50 text-red-800 dark:bg-red-900/20 dark:border-red-800 dark:text-red-400'
+                          : 'border-zinc-200 bg-zinc-50 text-zinc-700 dark:bg-zinc-900 dark:border-zinc-700 dark:text-zinc-300'
+                  ]"
+                >{{ runResult.stdout || runResult.stderr || '（无输出）' }}</pre>
+                <div
+                  v-else
+                  class="flex h-24 items-center justify-center rounded-xl border border-zinc-200 bg-zinc-50 text-sm text-zinc-400 shadow-sm dark:bg-zinc-900 dark:border-zinc-700"
+                >
+                  点击"运行"执行代码
+                </div>
               </div>
             </div>
           </div>
-        </div>
 
-        <div v-if="runResult" class="flex items-center gap-4 border-t border-zinc-200 px-4 py-2.5 dark:border-zinc-800">
-          <template v-if="outputMatch !== null">
-            <span
-              :class="[
-                'inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-xs font-semibold shadow-sm',
-                outputMatch
-                  ? 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-400 dark:border-emerald-800'
-                  : 'bg-red-50 text-red-700 border-red-200 dark:bg-red-900/30 dark:text-red-400 dark:border-red-800'
-              ]"
-            >
-              {{ outputMatch ? '输出匹配' : '输出不匹配' }}
-            </span>
-          </template>
-          <template v-else>
-            <span
-              :class="[
-                'inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-xs font-semibold shadow-sm',
-                runResult.status === 'Accepted'
-                  ? 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-400 dark:border-emerald-800'
-                  : runResult.status === 'Compile Error'
-                    ? 'bg-pink-50 text-pink-700 border-pink-200 dark:bg-pink-900/30 dark:text-pink-400 dark:border-pink-800'
+          <div v-if="runResult" class="flex items-center gap-4 border-t border-zinc-200 px-4 py-2.5 dark:border-zinc-800">
+            <template v-if="outputMatch !== null">
+              <span
+                :class="[
+                  'inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-xs font-semibold shadow-sm',
+                  outputMatch
+                    ? 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-400 dark:border-emerald-800'
                     : 'bg-red-50 text-red-700 border-red-200 dark:bg-red-900/30 dark:text-red-400 dark:border-red-800'
-              ]"
-            >
-              {{ runResult.status === 'Accepted' ? '完成' : runResult.status }}
-            </span>
-          </template>
-          <span class="text-xs text-zinc-400">时间: {{ runResult.time_used }} ms</span>
-          <span class="text-xs text-zinc-400">内存: {{ runResult.memory_used }} KB</span>
+                ]"
+              >
+                {{ outputMatch ? '输出匹配' : '输出不匹配' }}
+              </span>
+            </template>
+            <template v-else>
+              <span
+                :class="[
+                  'inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-xs font-semibold shadow-sm',
+                  runResult.status === 'Accepted'
+                    ? 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-400 dark:border-emerald-800'
+                    : runResult.status === 'Compile Error'
+                      ? 'bg-pink-50 text-pink-700 border-pink-200 dark:bg-pink-900/30 dark:text-pink-400 dark:border-pink-800'
+                      : 'bg-red-50 text-red-700 border-red-200 dark:bg-red-900/30 dark:text-red-400 dark:border-red-800'
+                ]"
+              >
+                {{ runResult.status === 'Accepted' ? '完成' : runResult.status }}
+              </span>
+            </template>
+            <span class="text-xs text-zinc-400">时间: {{ runResult.time_used }} ms</span>
+            <span class="text-xs text-zinc-400">内存: {{ runResult.memory_used }} KB</span>
+          </div>
         </div>
-      </div>
 
-      <div v-show="!showDebug" class="shrink-0 flex items-center justify-between border-t border-zinc-200 bg-zinc-50 px-4 py-2 dark:bg-zinc-900 dark:border-zinc-800">
-        <span class="text-xs text-zinc-400">调试控制台已收起</span>
-        <button class="rounded-lg bg-brand-600 px-4 py-1.5 text-xs font-semibold text-white shadow-sm shadow-brand-500/25 transition-all duration-200 hover:bg-brand-700" @click="showDebug = true">展开</button>
-      </div>
+        <div v-else key="collapsed" class="shrink-0 flex items-center justify-between border-t border-zinc-200 bg-zinc-50 px-4 py-2 dark:bg-zinc-900 dark:border-zinc-800">
+          <span class="text-xs text-zinc-400">调试控制台已收起</span>
+          <button class="rounded-lg bg-brand-600 px-4 py-1.5 text-xs font-semibold text-white shadow-sm shadow-brand-500/25 transition-all duration-200 hover:bg-brand-700" @click="showDebug = true">展开</button>
+        </div>
+      </Transition>
     </div>
   </div>
 

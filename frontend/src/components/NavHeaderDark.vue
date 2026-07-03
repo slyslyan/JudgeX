@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
+
 const router = useRouter()
 const route = useRoute()
 
@@ -30,43 +31,79 @@ function logout() {
   router.push('/login')
 }
 
-
 const navLinks = [
   { path: '/problems', label: '题库' },
   { path: '/contests', label: '比赛' },
   { path: '/submissions', label: '提交' },
   { path: '/leaderboard', label: '排行' },
 ]
+
+/* ── Cursor follower ── */
+const cursorStyle = ref({ left: 0, width: 0, opacity: 0 })
+const tabRefs = ref<(HTMLLIElement | null)[]>([])
+
+function setTabRef(el: any, index: number) {
+  tabRefs.value[index] = el
+}
+
+function handleMouseEnter(index: number) {
+  const el = tabRefs.value[index]
+  if (!el) return
+  cursorStyle.value = {
+    left: el.offsetLeft,
+    width: el.offsetWidth,
+    opacity: 1,
+  }
+}
+
+function handleMouseLeave() {
+  cursorStyle.value = { ...cursorStyle.value, opacity: 0 }
+}
 </script>
 
 <template>
-  <header class="sticky top-0 z-50 h-12 border-b border-black/5 bg-white/72 backdrop-blur-2xl dark:bg-[#161616]/78 dark:border-white/10" v-icon-color>
+  <header class="sticky top-0 z-50 h-14 border-b border-white/10 bg-[#161616]/78 backdrop-blur-2xl" v-icon-color>
     <div class="mx-auto flex h-full max-w-6xl items-center justify-between px-6">
-      <!-- Left -->
-      <div class="flex items-center gap-6">
-        <span class="cursor-pointer text-base font-semibold tracking-tight text-zinc-900 dark:text-white" @click="router.push('/')">
-          JudgeX
-        </span>
-        <nav class="hidden items-center gap-1 sm:flex">
-          <router-link
-            v-if="isLoggedIn"
-            v-for="link in navLinks"
-            :key="link.path"
-            :to="link.path"
-            class="rounded-full px-3.5 py-1.5 text-[13px] font-medium text-zinc-500 transition-colors hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-white"
-            active-class="!text-zinc-900 dark:!text-white"
-          >
-            {{ link.label }}
-          </router-link>
-        </nav>
-      </div>
+      <!-- Brand -->
+      <span
+        class="cursor-pointer text-base font-semibold tracking-tight text-white"
+        @click="router.push('/')"
+      >
+        JudgeX
+      </span>
+
+      <!-- Center: Animated Pill Nav (dark) -->
+      <ul
+        class="relative mx-auto hidden w-fit items-center rounded-full border-2 border-zinc-700 bg-zinc-900 p-1 sm:flex"
+        @mouseleave="handleMouseLeave"
+      >
+        <li
+          v-for="(link, i) in navLinks"
+          :key="link.path"
+          :ref="(el) => setTabRef(el, i)"
+          @mouseenter="handleMouseEnter(i)"
+          @click="router.push(link.path)"
+          class="relative z-10 block cursor-pointer select-none px-3 py-1.5 text-xs font-medium uppercase tracking-wide text-white mix-blend-difference transition-colors md:px-5 md:py-3 md:text-sm"
+        >
+          {{ link.label }}
+        </li>
+        <!-- Cursor pill (white) -->
+        <li
+          :style="{
+            left: cursorStyle.left + 'px',
+            width: cursorStyle.width + 'px',
+            opacity: cursorStyle.opacity,
+          }"
+          class="absolute top-0 z-0 h-full rounded-full bg-white pointer-events-none"
+        />
+      </ul>
 
       <!-- Right -->
       <div class="flex items-center gap-2">
         <router-link
           v-if="isLoggedIn"
           to="/playground"
-          class="hidden items-center gap-1 rounded-full bg-zinc-100 px-3.5 py-1.5 text-[13px] font-medium text-zinc-600 transition-colors hover:bg-zinc-200 sm:flex dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700"
+          class="hidden items-center gap-1 rounded-full bg-zinc-800 px-3.5 py-1.5 text-[13px] font-medium text-zinc-300 transition-colors hover:bg-zinc-700 sm:flex"
         >
           <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" d="M17.25 6.75L22.5 12l-5.25 5.25m-10.5 0L1.5 12l5.25-5.25m7.5-3l-4.5 16.5"/>
@@ -75,7 +112,7 @@ const navLinks = [
         </router-link>
 
         <button
-          class="flex h-8 w-8 items-center justify-center rounded-full text-sm text-zinc-500 transition-colors hover:bg-zinc-100 sm:hidden dark:text-zinc-400 dark:hover:bg-zinc-800"
+          class="flex h-8 w-8 items-center justify-center rounded-full text-sm text-zinc-400 transition-colors hover:bg-zinc-800 sm:hidden"
           @click="showMobileMenu = !showMobileMenu"
           aria-label="打开菜单"
         >
@@ -83,7 +120,7 @@ const navLinks = [
         </button>
 
         <button
-          class="flex h-8 w-8 items-center justify-center rounded-full text-sm text-zinc-500 transition-colors hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-zinc-800"
+          class="flex h-8 w-8 items-center justify-center rounded-full text-sm text-zinc-400 transition-colors hover:bg-zinc-800"
           @click="toggleDark"
           :title="isDark ? '浅色模式' : '深色模式'"
           aria-label="切换主题"
@@ -95,7 +132,7 @@ const navLinks = [
         <template v-if="isLoggedIn">
           <button
             v-if="user?.role === 'admin' || user?.role === 'super_admin'"
-            class="flex h-8 w-8 items-center justify-center rounded-full text-sm text-zinc-400 transition-colors hover:bg-zinc-100 dark:hover:bg-zinc-800"
+            class="flex h-8 w-8 items-center justify-center rounded-full text-sm text-zinc-400 transition-colors hover:bg-zinc-800"
             title="管理"
             aria-label="管理后台"
             @click="router.push('/admin/dashboard')"
@@ -107,17 +144,17 @@ const navLinks = [
           </button>
 
           <button
-            class="flex items-center gap-2 rounded-full py-1 pl-1.5 pr-3 text-[13px] font-medium text-zinc-600 transition-colors hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-800"
+            class="flex items-center gap-2 rounded-full py-1 pl-1.5 pr-3 text-[13px] font-medium text-zinc-300 transition-colors hover:bg-zinc-800"
             @click="router.push('/profile')"
           >
-            <div class="flex h-6 w-6 items-center justify-center rounded-full bg-zinc-200 text-[11px] font-semibold text-zinc-600 dark:bg-zinc-700 dark:text-zinc-300">
+            <div class="flex h-6 w-6 items-center justify-center rounded-full bg-zinc-700 text-[11px] font-semibold text-zinc-300">
               {{ user?.username?.charAt(0)?.toUpperCase() }}
             </div>
             <span class="hidden sm:inline">{{ user?.username }}</span>
           </button>
 
           <button
-            class="flex h-8 w-8 items-center justify-center rounded-full text-sm text-zinc-400 transition-colors hover:bg-red-50 hover:text-red-500 dark:hover:bg-red-900/20 dark:hover:text-red-400"
+            class="flex h-8 w-8 items-center justify-center rounded-full text-sm text-zinc-400 transition-colors hover:bg-red-900/20 hover:text-red-400"
             title="退出登录"
             aria-label="退出登录"
             @click="logout"
@@ -133,21 +170,21 @@ const navLinks = [
 
   <!-- Mobile nav drawer -->
   <Transition name="mobile-nav">
-    <div v-if="showMobileMenu && isLoggedIn" class="fixed inset-x-0 top-12 z-40 border-b border-zinc-200/60 bg-white/95 backdrop-blur-2xl shadow-lg sm:hidden dark:bg-[#161616]/95 dark:border-zinc-800">
+    <div v-if="showMobileMenu && isLoggedIn" class="fixed inset-x-0 top-14 z-40 border-b border-zinc-800 bg-[#161616]/95 backdrop-blur-2xl shadow-lg sm:hidden">
       <nav class="flex flex-col px-4 py-3">
         <router-link
           v-for="link in navLinks"
           :key="link.path"
           :to="link.path"
-          class="rounded-xl px-4 py-3 text-sm font-medium text-zinc-600 transition-colors hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-zinc-800"
-          active-class="!text-zinc-900 dark:!text-white !bg-zinc-100 dark:!bg-zinc-800"
+          class="rounded-xl px-4 py-3 text-sm font-medium text-zinc-400 transition-colors hover:bg-zinc-800"
+          active-class="!text-white !bg-zinc-800"
           @click="showMobileMenu = false"
         >
           {{ link.label }}
         </router-link>
         <router-link
           to="/playground"
-          class="rounded-xl px-4 py-3 text-sm font-medium text-zinc-600 transition-colors hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-zinc-800"
+          class="rounded-xl px-4 py-3 text-sm font-medium text-zinc-400 transition-colors hover:bg-zinc-800"
           @click="showMobileMenu = false"
         >
           Playground
@@ -158,6 +195,13 @@ const navLinks = [
 </template>
 
 <style scoped>
+/* Cursor pill animation — spring-like feel */
+.absolute.z-0 {
+  transition: left 0.35s cubic-bezier(0.34, 1.56, 0.64, 1),
+              width 0.35s cubic-bezier(0.34, 1.56, 0.64, 1),
+              opacity 0.25s ease;
+}
+
 .mobile-nav-enter-active,
 .mobile-nav-leave-active {
   transition: opacity 0.15s ease, transform 0.15s ease;

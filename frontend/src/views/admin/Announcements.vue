@@ -69,7 +69,8 @@ onMounted(load)
     </div>
 
     <!-- Editor modal -->
-    <div v-if="showEditor" class="fixed inset-0 z-50 flex items-center justify-center bg-black/40" @click.self="showEditor = false">
+    <Transition name="scale">
+      <div v-if="showEditor" class="fixed inset-0 z-50 flex items-center justify-center bg-black/40" @click.self="showEditor = false">
       <div class="mx-4 w-full max-w-lg rounded-2xl bg-white p-6 shadow-xl dark:bg-zinc-900">
         <h2 class="mb-4 text-[15px] font-semibold text-zinc-800 dark:text-zinc-200">{{ editing ? '编辑公告' : '新建公告' }}</h2>
         <input
@@ -88,7 +89,8 @@ onMounted(load)
           <button class="apple-btn-primary px-4 py-2 text-[13px]" :disabled="!title.trim()" @click="save">保存</button>
         </div>
       </div>
-    </div>
+      </div>
+      </Transition>
 
     <!-- List -->
     <div v-if="loading" class="py-10 text-center text-[14px] text-zinc-400">加载中...</div>

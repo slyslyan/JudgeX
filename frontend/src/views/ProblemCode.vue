@@ -3,6 +3,7 @@ import { ref, onMounted, watch, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { getProblem, getLastCode, getTemplates, runCode, type Problem, type RunResult } from '../api'
 import MonacoEditor from '../components/MonacoEditor.vue'
+import GlowButton from '../components/GlowButton.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -13,7 +14,6 @@ const langOptions = [
   { value: 'cpp', label: 'C++' },
   { value: 'python', label: 'Python' },
   { value: 'java', label: 'Java' },
-  { value: 'go', label: 'Go' },
   { value: 'rust', label: 'Rust' },
 ]
 
@@ -21,7 +21,6 @@ const defaultTemplates: Record<string, string> = {
   cpp: '#include <iostream>\nusing namespace std;\n\nint main() {\n    // your code here\n    return 0;\n}',
   python: '# your code here',
   java: 'import java.util.*;\n\npublic class Main {\n    public static void main(String[] args) {\n        // your code here\n    }\n}',
-  go: 'package main\n\nimport "fmt"\n\nfunc main() {\n    // your code here\n}',
   rust: 'fn main() {\n    // your code here\n}',
 }
 
@@ -133,7 +132,7 @@ function goBack() {
 </script>
 
 <template>
-  <div v-if="problem" class="flex h-[calc(100vh-3.5rem)] flex-col bg-white dark:bg-zinc-950">
+  <div v-if="problem" class="flex h-[calc(100vh-3.5rem)] flex-col bg-white dark:bg-zinc-950" v-icon-color>
     <!-- Top bar -->
     <div class="flex shrink-0 items-center gap-4 border-b border-zinc-200 px-6 py-3 dark:border-zinc-800">
       <button
@@ -156,13 +155,14 @@ function goBack() {
           </option>
         </select>
 
-        <button
-          class="btn-gradient"
+        <GlowButton
+          class="px-5 py-2 text-sm font-semibold gap-1.5"
           @click="handleRun"
           :disabled="runningCode"
         >
-          {{ runningCode ? 'Running...' : 'Run' }}
-        </button>
+          <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+          {{ runningCode ? '运行中...' : '运行' }}
+        </GlowButton>
       </div>
     </div>
 

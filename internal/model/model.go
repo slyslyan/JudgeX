@@ -80,8 +80,9 @@ type Problem struct {
 	Description     string          `gorm:"type:text" json:"description"`
 	TimeLimit       int             `gorm:"default:1000" json:"time_limit"`  // ms
 	MemoryLimit     int             `gorm:"default:128" json:"memory_limit"` // MB
-	SampleCases     json.RawMessage `gorm:"type:json" json:"sample_cases"`
-	TestCaseVersion int             `gorm:"default:1" json:"test_case_version"`
+	SampleCases       json.RawMessage `gorm:"type:json" json:"sample_cases"`
+	ReferenceSolution string          `gorm:"type:text" json:"reference_solution,omitempty"` // 参考解（用于TLE验证）
+	TestCaseVersion   int             `gorm:"default:1" json:"test_case_version"`
 	AcceptedCount   int64           `gorm:"default:0" json:"accepted_count"`
 	Tags            []ProblemTag    `gorm:"many2many:problem_tag_links;joinForeignKey:ProblemID;joinReferences:TagID" json:"tags,omitempty"`
 	CreatedAt       time.Time       `json:"created_at"`
@@ -132,12 +133,12 @@ type ProblemTag struct {
 //   - idx_user_problem_status: (user_id, problem_id, status)，用于判断是否已 AC
 type Submission struct {
 	ID           int64     `gorm:"primaryKey" json:"id"`
-	UserID       uint      `gorm:"index:idx_user_status,priority:1;index:idx_user_problem_status,priority:1;not null" json:"user_id"`
-	ProblemID    uint      `gorm:"index;index:idx_user_problem_status,priority:2;not null" json:"problem_id"`
-	ContestID    *uint     `gorm:"index" json:"contest_id,omitempty"`
+	UserID       uint      `gorm:"index:idx_user_status,priority:1;index:idx_user_problem_status,priority:1;index:idx_user_problem_contest,priority:1;not null" json:"user_id"`
+	ProblemID    uint      `gorm:"index;index:idx_user_problem_status,priority:2;index:idx_user_problem_contest,priority:2;not null" json:"problem_id"`
+	ContestID    *uint     `gorm:"index;index:idx_user_problem_contest,priority:3" json:"contest_id,omitempty"`
 	Language     string    `gorm:"size:16;not null" json:"language"`
 	Code         string    `gorm:"type:text;not null" json:"code"`
-	Status       string    `gorm:"size:32;default:pending;index:idx_user_status,priority:2;index:idx_user_problem_status,priority:3" json:"status"`
+	Status       string    `gorm:"size:32;default:pending;index:idx_status_user,priority:1;index:idx_user_status,priority:2;index:idx_user_problem_status,priority:3" json:"status"`
 	TimeUsed     int       `gorm:"default:0" json:"time_used"`
 	MemoryUsed   int       `gorm:"default:0" json:"memory_used"`
 	PassedCount  int       `gorm:"default:0" json:"passed_count"`
