@@ -1,6 +1,6 @@
 # JudgeX — 现代在线评测系统
 
-JudgeX 是一套面向编程教育的现代在线评测系统（Online Judge）。Apple 极简风格中文界面，Monaco 代码编辑器，支持 C++/Python/Java/Go/Rust 多语言自动判题，ACM 和 IOI 双赛制，Playground 多文件编程工作区，以及 AI 诊断助手（代码错误分析 + 题目质量检测）。后端 Go + 前端 Vue 3，沙箱基于 cgroup v2 / chroot / seccomp-BPF（K8s 下 gVisor），K3s/K8s 分布式部署。
+JudgeX 是一套面向编程教育的现代在线评测系统（Online Judge）。Apple 极简风格中文界面，Monaco 代码编辑器，支持 C++/Python/Java/Go/Rust 多语言自动判题，ACM 和 IOI 双赛制，Playground 多文件编程工作区，以及 AI 诊断助手（WA/TLE/RE/CE 分析与题目质量检测）。后端 Go + 前端 Vue 3，沙箱基于 cgroup v2 / chroot / seccomp-BPF（K8s 下 gVisor），K3s/K8s 分布式部署。
 
 ## 快速启动
 
@@ -28,14 +28,8 @@ cd /home/sly/Downloads/oj/frontend && npx vite --host
 - 移动端适配：汉堡菜单导航抽屉、响应式网格布局、Touch 友好交互
 - 404 页面：未匹配路由显示友好引导页，一键返回首页
 
-### AI 助手
-
-| Agent | 触发方式 | 功能 |
-|-------|----------|------|
-| **AI 诊断助手** | 提交详情页「AI 诊断」按钮 | WA/TLE/RE/CE 精准分析；诊断同时自动检测题目质量问题（样例错误、测试数据异常），写入 ProblemFeedback 表供管理员审核 |
-| **苏格拉底导师** | 题目详情页「需要提示？」按钮 | 引导式提问，不给答案 |
-| **虚拟教练** | 浮动 AI 聊天（全页面） | 上下文感知对话 + 建议 Chip |
-| **SRE 诊断** | 管理后台系统监控 | 系统快照采集 + AI 健康分析（含 AlertManager Webhook 自动诊断） |
+### AI 诊断助手
+在提交详情页点击「AI 诊断」，分析 WA/TLE/RE/CE 错误原因，同时自动检测题目质量问题（样例错误、测试数据异常），写入 ProblemFeedback 表供管理员审核。
 
 ### 安全
 - cgroup v2 + chroot + seccomp BPF 三层沙箱隔离（K8s 下 gVisor 用户态内核）
@@ -91,7 +85,7 @@ cd /home/sly/Downloads/oj/frontend && npx vite --host
 | 沙箱 | cgroup v2 + chroot + seccomp BPF / gVisor (runsc) |
 | 存储 | 本地磁盘 / MinIO / S3 |
 | 可观测 | Prometheus + Grafana + OpenTelemetry + Jaeger + Loki |
-| AI | 兼容 OpenAI 协议（DeepSeek、通义千问等），诊断 + 教学 + SRE 多 Agent，断路器，注入防护 |
+| AI | 兼容 OpenAI 协议（DeepSeek、通义千问等），AI 诊断助手，断路器，注入防护 |
 | 部署 | Docker Compose / Helm / K3s / K8s（KEDA 自动扩缩容） |
 | CI/CD | GitHub Actions（lint + test + build + docker push） |
 

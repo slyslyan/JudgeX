@@ -601,7 +601,7 @@ func checkProblemQualityOnDiagnose(ctx context.Context, req aiDiagnoseRequest, p
 		if err := database.DB.Create(&fb).Error; err != nil {
 			log.Printf("[diagnose] failed to save sample case feedback: %v", err)
 		} else {
-			log.Printf("[diagnose] problem quality issue detected: %s (P%d) for problem %d",
+			log.Printf("[diagnose] problem quality issue detected: %s (P%s) for problem %d",
 				fb.FeedbackType, fb.Priority, fb.ProblemID)
 		}
 	}
