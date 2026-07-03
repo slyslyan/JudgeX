@@ -103,7 +103,5 @@ Apple 极简风格：浅色 `#f5f5f7` / 深色 `#161616` 分层炭灰，品牌�
 
 | 文档 | 说明 |
 |------|------|
-| [项目简介](PROJECT_INTRO.md) | 技术栈 + 核心功能 + 项目结构一览 |
 | [部署指南](DEPLOY.md) | Docker Compose / 裸机 / K8s 部署步骤 |
-| [SRE 路线图](SRE_ROADMAP.md) | 生产就绪 → 扩缩容 → 高级架构 |
 | [服务器信息](SERVER.md) | 生产服务器部署状态（K3s + HTTPS） |
