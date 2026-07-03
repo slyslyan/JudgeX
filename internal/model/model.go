@@ -74,18 +74,18 @@ type User struct {
 //   - AcceptedCount: 通过的提交数，用于排行榜和统计
 //   - Tags: 题目标签，多对多关系（通过 problem_tag_links 关联表）
 type Problem struct {
-	ID              uint            `gorm:"primaryKey" json:"id"`
-	Number          int             `gorm:"default:0;index" json:"number"`
-	Title           string          `gorm:"size:255;not null" json:"title"`
-	Description     string          `gorm:"type:text" json:"description"`
-	TimeLimit       int             `gorm:"default:1000" json:"time_limit"`  // ms
-	MemoryLimit     int             `gorm:"default:128" json:"memory_limit"` // MB
+	ID                uint            `gorm:"primaryKey" json:"id"`
+	Number            int             `gorm:"default:0;index" json:"number"`
+	Title             string          `gorm:"size:255;not null" json:"title"`
+	Description       string          `gorm:"type:text" json:"description"`
+	TimeLimit         int             `gorm:"default:1000" json:"time_limit"`  // ms
+	MemoryLimit       int             `gorm:"default:128" json:"memory_limit"` // MB
 	SampleCases       json.RawMessage `gorm:"type:json" json:"sample_cases"`
 	ReferenceSolution string          `gorm:"type:text" json:"reference_solution,omitempty"` // 参考解（用于TLE验证）
 	TestCaseVersion   int             `gorm:"default:1" json:"test_case_version"`
-	AcceptedCount   int64           `gorm:"default:0" json:"accepted_count"`
-	Tags            []ProblemTag    `gorm:"many2many:problem_tag_links;joinForeignKey:ProblemID;joinReferences:TagID" json:"tags,omitempty"`
-	CreatedAt       time.Time       `json:"created_at"`
+	AcceptedCount     int64           `gorm:"default:0" json:"accepted_count"`
+	Tags              []ProblemTag    `gorm:"many2many:problem_tag_links;joinForeignKey:ProblemID;joinReferences:TagID" json:"tags,omitempty"`
+	CreatedAt         time.Time       `json:"created_at"`
 }
 
 // ProblemTag 题目标签。

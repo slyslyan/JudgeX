@@ -49,9 +49,9 @@ import (
 //	                         + dead letter
 
 const (
-	MaxRetries       = 3                  // 最大重试次数（超过后丢弃任务）
-	TopicFast        = "judge_tasks_fast" // 快速主题：C/C++/Go/Rust
-	TopicSlow        = "judge_tasks_slow" // 慢速主题：Python/Java
+	MaxRetries = 3                  // 最大重试次数（超过后丢弃任务）
+	TopicFast  = "judge_tasks_fast" // 快速主题：C/C++/Go/Rust
+	TopicSlow  = "judge_tasks_slow" // 慢速主题：Python/Java
 )
 
 // JudgeTask 是判题任务的序列化结构，通过 JSON 传输。

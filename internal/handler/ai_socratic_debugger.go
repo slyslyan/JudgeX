@@ -40,8 +40,8 @@ import (
 
 const diagnoseStreamTimeout = 180 * time.Second
 const maxTraceLines = 1000
-const maxConcurrentDiagnose = 4          // 最大并发插桩诊断任务数
-const debugUserRateLimit = 5          // 每用户每分钟最多 5 次诊断请求
+const maxConcurrentDiagnose = 4 // 最大并发插桩诊断任务数
+const debugUserRateLimit = 5    // 每用户每分钟最多 5 次诊断请求
 const debugUserRateWindow = 1 * time.Minute
 
 // diagnoseSemaphore 限制同时运行的插桩诊断任务数量。
@@ -93,7 +93,7 @@ func AIDiagnoseHandler(c *gin.Context) {
 		default:
 			// Semaphore 已满，返回友好提示
 			c.JSON(http.StatusServiceUnavailable, gin.H{
-				"error":   "诊断队列已满，请稍后再试",
+				"error":       "诊断队列已满，请稍后再试",
 				"retry_after": 30,
 			})
 			return
