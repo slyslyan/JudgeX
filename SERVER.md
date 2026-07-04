@@ -7,7 +7,7 @@
 | IP | 150.158.113.146 |
 | 系统 | Ubuntu (K3s 单节点) |
 | SSH | `ssh ubuntu@150.158.113.146` |
-| 密码 | Sly050810 |
+| 密码 | ******** |
 
 ## 访问地址
 
@@ -69,9 +69,9 @@ kubectl get configmap -n judgex judgex-config -o yaml
 
 ## 更新部署
 
-### 方式：Docker 镜像更新（推荐）
+### 方式：K3s 镜像更新（推荐）
 
-> 当前生产环境使用 Docker Compose 部署（非 K3s），详见下方命令。
+> 当前生产环境使用 K3s 部署，所有服务在 `judgex` 命名空间。
 
 ```bash
 # 1. 构建前端
