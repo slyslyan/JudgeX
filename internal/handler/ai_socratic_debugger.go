@@ -260,7 +260,6 @@ func instrumentedAnalysis(ctx context.Context, writeSSE func(string, string), re
 	writeSSE("done", "")
 }
 
-
 // ============================================================================
 // Reference solution validation
 // ============================================================================
@@ -357,8 +356,6 @@ func streamLLM(ctx context.Context, writeSSE func(string, string), systemPrompt,
 		writeSSE("token", chunk.Token)
 	}
 }
-
-
 
 // ============================================================================
 // Self-healing repair loop — for non-Go WA/RE
@@ -520,6 +517,7 @@ func truncateStr(s string, maxLen int) string {
 	}
 	return s[:maxLen] + "..."
 }
+
 // ============================================================================
 // 题目质量检测
 // ============================================================================
@@ -742,7 +740,6 @@ func runRefGoQuality(code, input string, timeLimitMs int) refResult {
 	}
 	return refResult{Output: string(output), Status: "Accepted"}
 }
-
 
 // ============================================================================
 // Test case loading (shared from former ai_debug.go)
