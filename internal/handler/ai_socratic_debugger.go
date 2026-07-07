@@ -10,6 +10,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"sort"
 	"strconv"
 	"strings"
@@ -39,12 +40,11 @@ import (
 // Reference solution validation audits to problem_feedback on failure.
 
 const diagnoseStreamTimeout = 180 * time.Second
-const maxTraceLines = 1000
-const maxConcurrentDiagnose = 4 // 最大并发插桩诊断任务数
+const maxConcurrentDiagnose = 4 // 最大并发诊断任务数
 const debugUserRateLimit = 5    // 每用户每分钟最多 5 次诊断请求
 const debugUserRateWindow = 1 * time.Minute
 
-// diagnoseSemaphore 限制同时运行的插桩诊断任务数量。
+// diagnoseSemaphore 限制同时运行的诊断任务数量。
 // 超过限制的请求立即返回 503，不阻塞判题队列。
 var diagnoseSemaphore = make(chan struct{}, maxConcurrentDiagnose)
 
@@ -250,46 +250,8 @@ Analyze why the student's code timed out. Provide:
 // ============================================================================
 
 func instrumentedAnalysis(ctx context.Context, writeSSE func(string, string), req aiDiagnoseRequest, problem model.Problem) {
-	// ── 降级链 ──
-	// Level 0: 插桩 + trace + LLM 分析（最精准）
-	// Level 1: 无插桩 + 静态代码 + 测试用例 + LLM 分析（LLM 依然工作）
-	// Level 2: 模板化诊断（LLM 不可用时兜底）
-	//
-	// 各级别之间独立失败，前一级别失败自动尝试下一级。
-
-	var traceOutput string
-
-	// ── Level 0: 插桩执行 ──
-	{
-		writeSSE("status", "正在插桩代码...")
-		instr := ai.NewGoInstrumenter()
-		modified, err := instr.Instrument(req.Code, req.Language)
-		if err == nil && modified != req.Code {
-			writeSSE("status", "正在运行插桩代码...")
-			traceOutput = runInstrumented(ctx, req.Language, modified, req.FailedInput, problem.TimeLimit, problem.MemoryLimit)
-			writeSSE("trace", jsonEscape(traceOutput))
-		} else {
-			writeSSE("status", "代码插桩不支持此语言，使用静态分析模式...")
-		}
-	}
-
-	// ── Level 1: LLM 分析 ──
-	writeSSE("status", "AI 正在分析...")
-	{
-		systemPrompt := buildWreSystemPrompt(req, problem)
-		userMsg := buildWreUserMessage(req, traceOutput)
-
-		llmOK := make(chan bool, 1)
-		go func() {
-			streamLLM(ctx, writeSSE, systemPrompt, userMsg)
-			llmOK <- true
-		}()
-
-		select {
-		case <-llmOK:
-		case <-ctx.Done():
-		}
-	}
+	// 自愈修复循环（所有语言统一走此路径）
+	attemptRepairLoop(ctx, writeSSE, req, problem)
 
 	// ── 题目质量检测 ──
 	// 参考解对本题 WA/RE 的测试点进行验证
@@ -298,147 +260,6 @@ func instrumentedAnalysis(ctx context.Context, writeSSE func(string, string), re
 	writeSSE("done", "")
 }
 
-func buildWreSystemPrompt(req aiDiagnoseRequest, problem model.Problem) string {
-	verdict := req.Verdict
-	return fmt.Sprintf(`You are an expert programming debugger performing causal analysis on a %s submission.
-
-## Role
-You are a professor who helps students understand why their code failed. You analyze execution traces with surgical precision.
-
-## Problem Context
-- Title: %s
-- Description: %s
-- Time Limit: %d ms | Memory Limit: %d MB
-
-## Your Task
-Analyze the failure and provide:
-1. **Observation**: What does the code do vs what it should do? Reference specific variable values from the trace.
-2. **Root cause question**: A pointed question that leads the student to the exact bug location.
-3. **Hint**: If they're stuck, a gentle nudge about the pattern or edge case they missed.
-
-## Constraints
-- NEVER output a complete working solution
-- Base your analysis on the trace output — reference specific variable values and line numbers
-- If no trace is available (static mode), explain the likely failure based on code structure
-- Reply in Chinese if the problem description is in Chinese, otherwise use English
-- Format: 现象观察 / 根因提问 / 提示`, verdict, problem.Title, problem.Description, problem.TimeLimit, problem.MemoryLimit)
-}
-
-// ============================================================================
-// Instrumented code execution with I/O truncation
-// ============================================================================
-
-// lineLimitWriter tracks output lines and cancels the context when the limit is exceeded.
-type lineLimitWriter struct {
-	maxLines  int
-	lineCount int
-	cancel    context.CancelFunc
-	buf       bytes.Buffer
-}
-
-func (w *lineLimitWriter) Write(p []byte) (int, error) {
-	for _, b := range p {
-		w.buf.WriteByte(b)
-		if b == '\n' {
-			w.lineCount++
-			if w.lineCount > w.maxLines && w.cancel != nil {
-				w.cancel()
-			}
-		}
-	}
-	return len(p), nil
-}
-
-func (w *lineLimitWriter) String() string {
-	return w.buf.String()
-}
-
-// runInstrumented compiles and runs instrumented code, capturing output with
-// line-count truncation. Returns the captured output or an error message.
-func runInstrumented(ctx context.Context, language, code, input string, timeLimitMs, memoryLimitMB int) string {
-	if language == "go" {
-		return runInstrumentedGo(ctx, code, input, timeLimitMs)
-	}
-	// For other languages, use the sandbox-based judge.Run.
-	result := judge.Run(language, code, input, timeLimitMs, memoryLimitMB)
-	return formatTraceOutput(result.Output, result.ErrorMsg)
-}
-
-// runInstrumentedGo compiles instrumented Go code with "go run" and captures output.
-func runInstrumentedGo(ctx context.Context, code, input string, timeLimitMs int) string {
-	tmpDir, err := os.MkdirTemp("", "diagnose-instr-*")
-	if err != nil {
-		return "[instrumentation error: failed to create temp dir]"
-	}
-	defer os.RemoveAll(tmpDir)
-
-	mainPath := filepath.Join(tmpDir, "main.go")
-	if err := os.WriteFile(mainPath, []byte(code), 0644); err != nil {
-		return "[instrumentation error: failed to write source]"
-	}
-
-	runCtx, cancel := context.WithTimeout(ctx, time.Duration(timeLimitMs)*time.Millisecond+5*time.Second)
-	defer cancel()
-
-	cmd := exec.CommandContext(runCtx, "go", "run", mainPath)
-	cmd.Stdin = strings.NewReader(input)
-	cmd.Dir = tmpDir
-
-	var stdout lineLimitWriter
-	stdout.maxLines = maxTraceLines
-	stdout.cancel = cancel
-
-	var stderr bytes.Buffer
-	cmd.Stdout = &stdout
-	cmd.Stderr = &stderr
-
-	if err := cmd.Run(); err != nil {
-		// Check if it was our line-limit cancellation.
-		if stdout.lineCount > maxTraceLines {
-			output := stdout.String()
-			if len(output) > 200 {
-				output = output[:len(output)-200] + "\n... [TRUNCATED: output exceeded 1000 lines]"
-			}
-			return output
-		}
-		// Real error.
-		return fmt.Sprintf("[exit: %v]\n%s\n%s", err, stdout.String(), stderr.String())
-	}
-
-	return stdout.String()
-}
-
-// formatTraceOutput combines stdout and stderr into a single trace string.
-func formatTraceOutput(stdout, stderr string) string {
-	var b strings.Builder
-	if stdout != "" {
-		b.WriteString(stdout)
-	}
-	if stderr != "" {
-		if b.Len() > 0 {
-			b.WriteString("\n--- stderr ---\n")
-		}
-		stderr = truncateLines(stderr, maxTraceLines)
-		b.WriteString(stderr)
-	}
-	if b.Len() == 0 {
-		return "[no output produced]"
-	}
-	return b.String()
-}
-
-// truncateLines truncates the string to at most maxLines lines.
-func truncateLines(s string, maxLines int) string {
-	if maxLines <= 0 {
-		return ""
-	}
-	lines := strings.SplitN(s, "\n", maxLines+1)
-	if len(lines) > maxLines {
-		lines[maxLines-1] = lines[maxLines-1] + "\n... [TRUNCATED]"
-		return strings.Join(lines[:maxLines], "\n")
-	}
-	return s
-}
 
 // ============================================================================
 // Reference solution validation
@@ -537,38 +358,168 @@ func streamLLM(ctx context.Context, writeSSE func(string, string), systemPrompt,
 	}
 }
 
-func buildWreUserMessage(req aiDiagnoseRequest, traceOutput string) string {
+
+
+// ============================================================================
+// Self-healing repair loop — for non-Go WA/RE
+// ============================================================================
+
+const maxRepairAttempts = 3
+
+// attemptRepairLoop 循环让 LLM 修复代码并送沙箱验证，直到通过或达到上限。
+func attemptRepairLoop(ctx context.Context, writeSSE func(string, string), req aiDiagnoseRequest, problem model.Problem) {
+	var lastError string
+
+	for attempt := 1; attempt <= maxRepairAttempts; attempt++ {
+		select {
+		case <-ctx.Done():
+			writeSSE("status", "诊断超时，请重试")
+			return
+		default:
+		}
+
+		if attempt > 1 {
+			writeSSE("status", fmt.Sprintf("AI 正在尝试第 %d/%d 次修复...", attempt, maxRepairAttempts))
+		} else {
+			writeSSE("status", "AI 正在分析并修复代码...")
+		}
+
+		systemPrompt := buildRepairSystemPrompt(problem, req, attempt)
+		userMsg := buildRepairUserMessage(req, attempt, lastError)
+
+		// Streaming + collecting full LLM response
+		var collected strings.Builder
+		llmCtx, llmCancel := context.WithTimeout(ctx, 90*time.Second)
+		ch := ai.StreamChat(llmCtx, systemPrompt, []ai.ChatMessage{
+			{Role: "user", Content: userMsg},
+		})
+
+		var llmErr string
+		func() {
+			defer llmCancel()
+			for chunk := range ch {
+				if chunk.Error != "" {
+					llmErr = chunk.Error
+					log.Printf("[repair] LLM error on attempt %d: %s", attempt, chunk.Error)
+					writeSSE("error", fmt.Sprintf(`{"message":"AI响应异常: %s"}`, chunk.Error))
+					return
+				}
+				if chunk.Done {
+					return
+				}
+				collected.WriteString(chunk.Token)
+				writeSSE("token", chunk.Token)
+			}
+		}()
+
+		if llmErr != "" {
+			return
+		}
+
+		fullResponse := collected.String()
+		if fullResponse == "" {
+			lastError = "AI returned empty response"
+			continue
+		}
+
+		// Extract code from markdown code block
+		fixedCode := extractCodeFromMarkdown(fullResponse)
+		if fixedCode == "" {
+			writeSSE("status", "未提取到代码，尝试下一轮...")
+			lastError = "AI did not output code in a markdown block"
+			continue
+		}
+
+		// Run in sandbox
+		writeSSE("status", fmt.Sprintf("正在沙箱中运行修复后的代码..."))
+		result := judge.Run(req.Language, fixedCode, req.FailedInput, problem.TimeLimit, problem.MemoryLimit)
+
+		if result.Status == judge.StatusAccepted {
+			writeSSE("status", fmt.Sprintf("第 %d 次修复成功，代码已通过测试用例！", attempt))
+			return
+		}
+
+		// Record error for next iteration
+		lastError = fmt.Sprintf(
+			"Attempt %d: verdict=%s  error=%s  output=%s",
+			attempt, result.Status, result.ErrorMsg, truncateStr(result.Output, 300),
+		)
+		writeSSE("fix_result", fmt.Sprintf(
+			`{"attempt":%d,"verdict":"%s"}`,
+			attempt, result.Status,
+		))
+
+		// After first failure, check if test data might be the problem
+		if attempt == 1 && problem.ReferenceSolution != "" && req.FailedInput != "" {
+			lang := detectRefLang(problem.ReferenceSolution)
+			refResult := runRefForQuality(lang, problem.ReferenceSolution, req.FailedInput, problem.TimeLimit, problem.MemoryLimit)
+			if refResult.ErrorMsg != "" || refResult.Status != "Accepted" {
+				writeSSE("status", "参考解在此测试用例上也失败，可能是测试数据有误，但继续尝试修复...")
+			}
+		}
+	}
+
+	writeSSE("status", fmt.Sprintf("%d 次修复均未通过测试，建议人工检查代码", maxRepairAttempts))
+}
+
+// buildRepairSystemPrompt 构造修复循环的系统提示词。
+func buildRepairSystemPrompt(problem model.Problem, req aiDiagnoseRequest, attempt int) string {
+	extra := ""
+	if attempt > 1 {
+		extra = fmt.Sprintf("- This is fix attempt #%d. Consider why previous attempts failed.\n- Try a different approach.", attempt)
+	}
+	return fmt.Sprintf("You are an expert programmer fixing a bug in a student's code submission for an Online Judge system.\n\n## Problem Context\n- Title: %s\n- Description: %s\n- Time Limit: %d ms | Memory Limit: %d MB\n\n## Your Task\nAnalyze why the student's %s code fails on the given test case, then output the COMPLETE fixed code.\n\n## Output Format\nFirst briefly explain what's wrong (1-3 sentences), then output the full fixed code in a single markdown code block:\n\n```%s\n// your fixed code here\n```\n\n## Rules\n- Output the ENTIRE program, not just the changed lines.\n- Maintain the exact same input/output format.\n- Consider edge cases (empty input, large values, boundary conditions).\n- Do NOT change the IO format.\n%s\n",
+		problem.Title, problem.Description, problem.TimeLimit, problem.MemoryLimit,
+		req.Language, req.Language, extra)
+}
+
+// buildRepairUserMessage 构造修复循环的用户消息。
+func buildRepairUserMessage(req aiDiagnoseRequest, attempt int, lastError string) string {
 	var b strings.Builder
-	b.WriteString(fmt.Sprintf("## Student's Code\n\n```%s\n%s\n```\n\n", req.Language, req.Code))
 
-	if req.FailedInput != "" || req.FailedExpected != "" {
-		b.WriteString("## Failed Test Case\n")
-		if req.FailedCaseID > 0 {
-			b.WriteString(fmt.Sprintf("- Case ID: %d\n", req.FailedCaseID))
-		}
-		if req.FailedInput != "" {
-			b.WriteString(fmt.Sprintf("- Input: %s\n", req.FailedInput))
-		}
-		if req.FailedExpected != "" {
-			b.WriteString(fmt.Sprintf("- Expected: %s\n", req.FailedExpected))
-		}
-		if req.FailedActual != "" {
-			b.WriteString(fmt.Sprintf("- Actual: %s\n", req.FailedActual))
-		}
-		b.WriteString(fmt.Sprintf("- Verdict: %s\n\n", req.Verdict))
+	b.WriteString(fmt.Sprintf("## Student's Original Code\n\n```%s\n%s\n```\n\n", req.Language, req.Code))
+	b.WriteString("## Failed Test Case\n")
+	if req.FailedCaseID > 0 {
+		b.WriteString(fmt.Sprintf("- Case ID: %d\n", req.FailedCaseID))
+	}
+	if req.FailedInput != "" {
+		b.WriteString(fmt.Sprintf("- Input: %s\n", req.FailedInput))
+	}
+	if req.FailedExpected != "" {
+		b.WriteString(fmt.Sprintf("- Expected: %s\n", req.FailedExpected))
+	}
+	if req.FailedActual != "" {
+		b.WriteString(fmt.Sprintf("- Actual: %s\n", req.FailedActual))
+	}
+	b.WriteString(fmt.Sprintf("- Verdict: %s\n\n", req.Verdict))
+
+	if attempt > 1 && lastError != "" {
+		b.WriteString("## Previous Fix Attempt\n")
+		b.WriteString(lastError)
+		b.WriteString("\n\nThe previous fix didn't work. Analyze what went wrong and try a different approach.\n")
+	} else {
+		b.WriteString("Fix the code so it produces the expected output for this test case.\n")
 	}
 
-	if traceOutput != "" {
-		b.WriteString("## Execution Trace (Instrumented)\n")
-		b.WriteString("```\n")
-		b.WriteString(truncateLines(traceOutput, maxTraceLines))
-		b.WriteString("\n```\n\n")
-	}
-
-	b.WriteString("Analyze the failure. Identify the root cause and guide the student to fix it.")
 	return b.String()
 }
 
+// extractCodeFromMarkdown 从 LLM 响应中提取首个 markdown 代码块内容。
+func extractCodeFromMarkdown(response string) string {
+	re := regexp.MustCompile("(?s)```\\w*\\n(.*?)```")
+	matches := re.FindStringSubmatch(response)
+	if len(matches) >= 2 {
+		return strings.TrimSpace(matches[1])
+	}
+	return ""
+}
+
+func truncateStr(s string, maxLen int) string {
+	if len(s) <= maxLen {
+		return s
+	}
+	return s[:maxLen] + "..."
+}
 // ============================================================================
 // 题目质量检测
 // ============================================================================
@@ -792,14 +743,6 @@ func runRefGoQuality(code, input string, timeLimitMs int) refResult {
 	return refResult{Output: string(output), Status: "Accepted"}
 }
 
-// ============================================================================
-// Utilities
-// ============================================================================
-
-func jsonEscape(s string) string {
-	b, _ := json.Marshal(s)
-	return string(b)
-}
 
 // ============================================================================
 // Test case loading (shared from former ai_debug.go)
